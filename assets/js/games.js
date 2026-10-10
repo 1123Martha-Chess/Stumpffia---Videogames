@@ -1,0 +1,98 @@
+/* Catálogo de Stumpffia.
+   Para publicar un juego: crea games/<id>/index.html y cambia su "pronto" a false. */
+
+window.STUMPFFIA = {
+
+  /* Pon aquí tus enlaces de donación. Si lo dejas vacío, el modal muestra un aviso. */
+  donaciones: [
+    // { nombre: "Ko-fi",    url: "https://ko-fi.com/tu-usuario" },
+    // { nombre: "PayPal",   url: "https://paypal.me/tu-usuario" },
+    // { nombre: "Mercado Pago", url: "https://..." },
+  ],
+
+  /* Cuando publiques el APK, pon aquí la URL y aparecerá el botón de descarga. */
+  apk: null, // p. ej. { url: "/descargas/stumpffia.apk", version: "1.0", peso: "2.4 MB" }
+
+  juegos: [
+    {
+      id: "salta-rana",
+      nombre: "Salta, Rana",
+      emoji: "🐸",
+      desc: "Toca para saltar de hoja en hoja. Un dedo, un botón, cero excusas.",
+      peso: "12 KB",
+      pronto: true
+    },
+    {
+      id: "memoria-charco",
+      nombre: "Memoria del Charco",
+      emoji: "🃏",
+      desc: "Encuentra las parejas de bichitos antes de que se acaben los intentos.",
+      peso: "14 KB",
+      pronto: true
+    },
+    {
+      id: "atrapa-mosca",
+      nombre: "Atrapa la Mosca",
+      emoji: "🪰",
+      desc: "Reflejos puros: saca la lengua en el momento exacto.",
+      peso: "11 KB",
+      pronto: true
+    },
+    {
+      id: "serpiente-renacuajo",
+      nombre: "Renacuajo",
+      emoji: "🐍",
+      desc: "La serpiente de toda la vida, pero crece comiendo algas.",
+      peso: "9 KB",
+      pronto: true
+    },
+    {
+      id: "piedras-lirios",
+      nombre: "Piedras y Lirios",
+      emoji: "🪷",
+      desc: "Rompecabezas de lógica por turnos. Tranquilo, sin reloj.",
+      peso: "16 KB",
+      pronto: true
+    },
+    {
+      id: "coro-nocturno",
+      nombre: "Coro Nocturno",
+      emoji: "🎵",
+      desc: "Repite la melodía de las ranas. Cada ronda, una nota más.",
+      peso: "13 KB",
+      pronto: true
+    },
+    {
+      id: "lluvia-gotas",
+      nombre: "Lluvia",
+      emoji: "🌧️",
+      desc: "Esquiva las gotas y aguanta lo más posible bajo la tormenta.",
+      peso: "10 KB",
+      pronto: true
+    },
+    {
+      id: "sopa-de-letras",
+      nombre: "Sopa de Ranas",
+      emoji: "🔤",
+      desc: "Encuentra palabras escondidas en la charca de letras.",
+      peso: "18 KB",
+      pronto: true
+    },
+    {
+      id: "equilibrio",
+      nombre: "Equilibrio",
+      emoji: "⚖️",
+      desc: "Apila ranitas sin que la torre se venga abajo.",
+      peso: "15 KB",
+      pronto: true
+    },
+    {
+      id: "carrera-charcos",
+      nombre: "Carrera de Charcos",
+      emoji: "🏁",
+      desc: "Dos jugadores en el mismo teléfono. El primero en llegar gana.",
+      peso: "17 KB",
+      pronto: true
+    }
+  ]
+};

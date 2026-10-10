@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stumpffia — Ranas Chiquitas, Juegos Chiquitos</title>
+<meta name="description" content="Juegos pequeñitos, gratis, sin anuncios y sin recolectar datos. Cada uno pesa menos de 1 MB y funciona en cualquier dispositivo.">
+<meta name="theme-color" content="#0e2a1b">
+<meta name="color-scheme" content="dark light">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Stumpffia — Ranas Chiquitas, Juegos Chiquitos">
+<meta property="og:description" content="Juegos pequeñitos, gratis, sin anuncios y sin recolectar datos.">
+<meta property="og:image" content="/assets/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/img/icon-192.png">
+<link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#juegos">Saltar a los juegos</a>
+
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Stumpffia, inicio">
+    <svg class="brand-frog" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <ellipse cx="32" cy="40" rx="24" ry="18" fill="var(--frog)"/>
+      <circle cx="17" cy="21" r="11" fill="var(--frog)"/>
+      <circle cx="47" cy="21" r="11" fill="var(--frog)"/>
+      <circle cx="17" cy="21" r="6" fill="#fff"/>
+      <circle cx="47" cy="21" r="6" fill="#fff"/>
+      <circle cx="18" cy="22" r="3.2" fill="#0b1f14"/>
+      <circle cx="46" cy="22" r="3.2" fill="#0b1f14"/>
+      <path d="M20 44q12 9 24 0" fill="none" stroke="#0b1f14" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <span class="brand-text">
+      <strong>Stumpffia</strong>
+      <small>Ranas Chiquitas = Juegos Chiquitos</small>
+    </span>
+  </a>
+
+  <div class="topbar-actions">
+    <button class="btn btn-ghost" id="btn-instalar" hidden>Instalar</button>
+    <button class="btn btn-donar" id="btn-donar">Donar <span aria-hidden="true">💚</span></button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Juegos chiquitos para todos</h1>
+    <p>
+      Sin anuncios, sin cuentas, sin pagos y sin recolectar nada tuyo.
+      Cada juego pesa menos de <strong>1&nbsp;MB</strong> y abre en cualquier teléfono o computadora.
+    </p>
+    <ul class="hero-chips">
+      <li>Gratis siempre</li>
+      <li>Cero anuncios</li>
+      <li>Cero datos</li>
+      <li>Funciona sin internet</li>
+    </ul>
+  </section>
+
+  <h2 class="section-title" id="juegos">Los juegos</h2>
+  <div class="games" id="games-list">
+    <!-- las tarjetas se generan desde assets/js/games.js -->
+  </div>
+
+  <section class="info" id="info">
+    <article>
+      <h2>¿Quiénes somos?</h2>
+      <p>
+        Stumpffia es un proyecto hecho por una persona, no por una empresa. El nombre viene de un
+        género de ranas diminutas de Madagascar: algunas caben en la uña de un dedo. Esa es la idea
+        aquí — juegos pequeños, que cargan rápido y no estorban.
+      </p>
+      <p>
+        No hay anuncios, no hay niveles de pago, no hay "premium". Si algo te gustó y quieres
+        apoyar, puedes donar; si no, juega igual y bienvenido.
+      </p>
+    </article>
+
+    <article>
+      <h2>¿Qué es el PWA y cómo se instala?</h2>
+      <p>
+        Un PWA es esta misma página, pero guardada en tu dispositivo como si fuera una app: aparece
+        con su ícono, abre a pantalla completa y <strong>funciona sin internet</strong>. No ocupa
+        casi espacio y no pide permisos.
+      </p>
+      <ul>
+        <li><strong>Android / Chrome:</strong> toca el botón <em>Instalar</em> de arriba, o el menú ⋮ → "Instalar aplicación".</li>
+        <li><strong>iPhone / Safari:</strong> botón Compartir → "Añadir a pantalla de inicio".</li>
+        <li><strong>Computadora:</strong> el ícono de instalar en la barra de direcciones.</li>
+      </ul>
+    </article>
+
+    <article>
+      <h2>¿Y el APK?</h2>
+      <p>
+        Para quien prefiera un archivo único y revisable, se publica un APK de Android con todos
+        los juegos dentro. Es opcional: la página web y el PWA hacen exactamente lo mismo.
+      </p>
+      <p class="muted" id="apk-nota">El APK aún no está publicado. Cuando lo esté, aparecerá aquí junto con su firma para que puedas verificarlo.</p>
+    </article>
+
+    <article>
+      <h2>¿Pedimos datos?</h2>
+      <p>
+        <strong>No. Nada.</strong> Sin registro, sin correo, sin analítica, sin cookies de rastreo,
+        sin píxeles, sin redes publicitarias. Tus récords y tu progreso se guardan solo en tu
+        propio dispositivo y nunca salen de ahí.
+      </p>
+      <p>
+        Si borras los datos del navegador, se borran tus récords — y nosotros no tenemos copia,
+        porque jamás la tuvimos.
+      </p>
+    </article>
+
+    <article class="gracias">
+      <h2>Gracias por jugar</h2>
+      <p>
+        En serio. Que alguien abra algo que hiciste ya es suficiente. Que además vuelva, es mucho.
+      </p>
+    </article>
+  </section>
+</main>
+
+<footer class="footer">
+  <svg class="footer-frog" viewBox="0 0 64 64" aria-hidden="true">
+    <ellipse cx="32" cy="40" rx="24" ry="18" fill="currentColor"/>
+    <circle cx="17" cy="21" r="11" fill="currentColor"/>
+    <circle cx="47" cy="21" r="11" fill="currentColor"/>
+  </svg>
+  <p class="watermark">Ranas Chiquitas = Juegos Chiquitos</p>
+  <p class="muted">Stumpffia · hecho a mano · sin anuncios · sin rastreo</p>
+</footer>
+
+<dialog class="modal" id="modal-donar">
+  <form method="dialog">
+    <button class="modal-close" aria-label="Cerrar">×</button>
+  </form>
+  <h2>Donar 💚</h2>
+  <p>
+    Stumpffia es gratis y lo seguirá siendo. Las donaciones son totalmente voluntarias y solo
+    sirven para pagar el dominio y seguir haciendo juegos.
+  </p>
+  <div class="donar-links" id="donar-links">
+    <p class="muted">Los enlaces de donación se configuran en <code>assets/js/games.js</code>.</p>
+  </div>
+  <p class="muted small">No se pide ningún dato tuyo para donar desde aquí: el enlace te lleva a la plataforma externa que elijas.</p>
+</dialog>
+
+<script src="/assets/js/games.js"></script>
+<script src="/assets/js/app.js"></script>
+</body>
+</html>

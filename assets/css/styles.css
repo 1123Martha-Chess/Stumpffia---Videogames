@@ -1,0 +1,229 @@
+/* Stumpffia — Ranas Chiquitas = Juegos Chiquitos
+   Sin frameworks, sin fuentes externas, sin peticiones de red. */
+
+:root {
+  --bg:        #0b1710;
+  --bg-2:      #10241a;
+  --card:      #142c20;
+  --card-top:  #1a3a2a;
+  --line:      #27503a;
+  --text:      #e8f5ec;
+  --muted:     #9dbdab;
+  --frog:      #5ac85a;
+  --frog-dark: #2f8f3f;
+  --accent:    #ffd166;
+  --heart:     #ff7a90;
+  --radius:    18px;
+  --gutter:    16px;
+  --maxw:      980px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:        #f4fbf5;
+    --bg-2:      #e8f5ea;
+    --card:      #ffffff;
+    --card-top:  #e4f6e8;
+    --line:      #bfe0c8;
+    --text:      #10241a;
+    --muted:     #4e6d5a;
+    --frog:      #37a84a;
+    --frog-dark: #1f6e2d;
+    --accent:    #b8860b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+.skip-link {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--frog); color: #06130c; padding: 10px 16px; z-index: 100;
+  border-radius: 0 0 12px 0; font-weight: 700;
+}
+.skip-link:focus { left: 0; }
+
+:focus-visible { outline: 3px solid var(--frog); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- Barra superior ---------- */
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px var(--gutter);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
+.brand-frog { width: 34px; height: 34px; flex: none; }
+.brand-text { display: flex; flex-direction: column; min-width: 0; }
+.brand-text strong { font-size: 1.15rem; letter-spacing: .2px; }
+.brand-text small {
+  color: var(--muted); font-size: .72rem; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+.topbar-actions { display: flex; gap: 8px; flex: none; }
+
+.btn {
+  font: inherit; font-weight: 700; cursor: pointer;
+  border-radius: 999px; padding: 9px 16px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+  transition: transform .12s ease, background .15s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn-donar { background: var(--frog); border-color: var(--frog-dark); color: #06130c; }
+.btn-ghost { background: transparent; }
+
+/* ---------- Hero ---------- */
+
+.hero {
+  max-width: var(--maxw); margin: 0 auto; padding: 36px var(--gutter) 8px;
+  text-align: center;
+}
+.hero h1 { font-size: clamp(1.7rem, 6vw, 2.6rem); margin: 0 0 10px; line-height: 1.15; }
+.hero p { color: var(--muted); max-width: 54ch; margin: 0 auto; }
+
+.hero-chips {
+  list-style: none; display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px; padding: 0; margin: 18px 0 0;
+}
+.hero-chips li {
+  font-size: .8rem; font-weight: 600; padding: 5px 12px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--bg-2); color: var(--muted);
+}
+
+.section-title {
+  max-width: var(--maxw); margin: 34px auto 14px; padding: 0 var(--gutter);
+  font-size: 1.25rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted);
+}
+
+/* ---------- Tarjetas de juegos ---------- */
+
+.games {
+  max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter) 8px;
+  display: grid; gap: 16px;
+}
+@media (min-width: 720px) {
+  .games { grid-template-columns: 1fr 1fr; }
+}
+
+.game-card {
+  display: flex; flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-decoration: none; color: inherit;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.game-card:hover { transform: translateY(-3px); border-color: var(--frog); }
+
+.game-card--pronto { opacity: .55; cursor: default; }
+.game-card--pronto:hover { transform: none; border-color: var(--line); }
+
+.game-art {
+  aspect-ratio: 16 / 9;
+  display: grid; place-items: center;
+  background: var(--card-top);
+  border-bottom: 1px solid var(--line);
+  font-size: clamp(2.6rem, 11vw, 4rem);
+  line-height: 1;
+}
+
+.game-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.game-body h3 { margin: 0; font-size: 1.1rem; }
+.game-body p { margin: 0; color: var(--muted); font-size: .9rem; flex: 1; }
+
+.game-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 6px; font-size: .75rem; color: var(--muted);
+}
+.tag {
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px;
+  background: var(--bg-2);
+}
+.tag--peso { color: var(--frog); border-color: var(--frog-dark); }
+.tag--pronto { color: var(--accent); }
+
+/* ---------- Info ---------- */
+
+.info {
+  max-width: var(--maxw); margin: 40px auto 0; padding: 0 var(--gutter);
+  display: grid; gap: 16px;
+}
+@media (min-width: 720px) {
+  .info { grid-template-columns: 1fr 1fr; }
+  .info .gracias { grid-column: 1 / -1; }
+}
+
+.info article {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.info h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.info p { margin: 0 0 10px; color: var(--muted); font-size: .94rem; }
+.info p:last-child { margin-bottom: 0; }
+.info ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .94rem; }
+.info li { margin-bottom: 6px; }
+.info strong { color: var(--text); }
+
+.gracias { text-align: center; border-color: var(--frog-dark); }
+
+/* ---------- Pie ---------- */
+
+.footer {
+  text-align: center; padding: 48px var(--gutter) 40px; margin-top: 40px;
+  border-top: 1px solid var(--line); color: var(--muted);
+}
+.footer-frog { width: 40px; height: 40px; color: var(--line); display: block; margin: 0 auto 10px; }
+.watermark {
+  margin: 0 0 6px; font-weight: 800; letter-spacing: .04em;
+  color: var(--frog); font-size: 1rem;
+}
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+
+/* ---------- Modal de donación ---------- */
+
+.modal {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); color: var(--text);
+  max-width: 420px; width: calc(100% - 32px); padding: 24px;
+}
+.modal::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
+.modal h2 { margin: 0 0 10px; }
+.modal p { color: var(--muted); font-size: .92rem; }
+.modal-close {
+  position: absolute; top: 10px; right: 12px;
+  background: none; border: none; color: var(--muted);
+  font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 4px 8px;
+}
+
+.donar-links { display: grid; gap: 8px; margin: 16px 0; }
+.donar-links a {
+  display: block; text-align: center; text-decoration: none; font-weight: 700;
+  padding: 12px; border-radius: 12px;
+  background: var(--frog); color: #06130c; border: 1px solid var(--frog-dark);
+}

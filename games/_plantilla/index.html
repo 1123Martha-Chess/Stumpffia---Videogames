@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nombre del juego — Stumpffia</title>
+<meta name="theme-color" content="#0e2a1b">
+<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  /* Cada juego trae su CSS dentro para que sea un solo archivo que cargue de golpe. */
+  :root { --bg:#0b1710; --text:#e8f5ec; --muted:#9dbdab; --frog:#5ac85a; --line:#27503a; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100dvh; background:var(--bg); color:var(--text);
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    touch-action:manipulation; -webkit-user-select:none; user-select:none;
+  }
+  header { width:100%; display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
+  header a { color:var(--muted); text-decoration:none; font-weight:700; }
+  header h1 { font-size:1rem; margin:0; }
+  .marcador { margin-left:auto; color:var(--frog); font-weight:800; font-variant-numeric:tabular-nums; }
+  canvas { display:block; width:100%; max-width:480px; height:auto; touch-action:none; }
+  footer { color:var(--muted); font-size:.8rem; padding:14px; text-align:center; }
+</style>
+</head>
+<body>
+  <header>
+    <a href="/" aria-label="Volver a Stumpffia">←</a>
+    <h1>Nombre del juego</h1>
+    <span class="marcador" id="marcador">0</span>
+  </header>
+
+  <canvas id="juego" width="480" height="720" aria-label="Área de juego"></canvas>
+
+  <footer>Toca para jugar · tu récord se guarda solo en este dispositivo</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var ID = "plantilla";            // mismo id que en assets/js/games.js
+  var cv = document.getElementById("juego");
+  var ctx = cv.getContext("2d");
+  var marcador = document.getElementById("marcador");
+
+  /* Récord local. Nada sale del dispositivo. */
+  function leerRecord() {
+    try { return parseInt(localStorage.getItem("stumpffia:" + ID), 10) || 0; }
+    catch (e) { return 0; }
+  }
+  function guardarRecord(v) {
+    try { localStorage.setItem("stumpffia:" + ID, String(v)); } catch (e) {}
+  }
+
+  var puntos = 0, record = leerRecord();
+
+  /* Pantallas de alta densidad sin que pese más. */
+  function ajustar() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var ancho = cv.clientWidth, alto = cv.clientWidth * 1.5;
+    cv.width = ancho * dpr; cv.height = alto * dpr;
+    cv.style.height = alto + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", ajustar);
+  ajustar();
+
+  function dibujar() {
+    var w = cv.clientWidth, h = cv.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#5ac85a";
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, Math.min(w, h) * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#9dbdab";
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("récord: " + record, w / 2, h / 2 + 70);
+  }
+
+  function bucle() {
+    dibujar();
+    requestAnimationFrame(bucle);
+  }
+  bucle();
+
+  function tocar() {
+    puntos++;
+    marcador.textContent = puntos;
+    if (puntos > record) { record = puntos; guardarRecord(record); }
+  }
+  cv.addEventListener("pointerdown", tocar);
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); tocar(); }
+  });
+})();
+</script>
+</body>
+</html>
