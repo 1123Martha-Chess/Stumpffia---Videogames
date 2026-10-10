@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Tanques — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  :root { --marino:#0B1A4A; --claro:#7EC8F2; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    margin:0; background:var(--marino); color:var(--claro);
+    font:15px/1.4 ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
+  }
+  canvas { display:block; image-rendering:pixelated; touch-action:none; }
+
+  /* Marcador: vidas, munición y poder activo */
+  #hud {
+    position:fixed; top:0; left:0; right:0; z-index:3;
+    display:flex; align-items:center; gap:14px;
+    padding:8px 12px; padding-top:calc(8px + env(safe-area-inset-top));
+    font-weight:700; font-variant-numeric:tabular-nums;
+    background:linear-gradient(var(--marino),transparent);
+    pointer-events:none;
+  }
+  #hud b { font-weight:700; letter-spacing:.16em; }
+  #poder { margin-left:auto; opacity:0; transition:opacity .2s; }
+  #poder.visible { opacity:1; }
+
+  /* Mando táctil: solo aparece si el aparato tiene pantalla táctil */
+  #mando { display:none; }
+  body.tactil #mando {
+    display:block; position:fixed; inset:auto 0 0 0; z-index:4;
+    padding:0 18px calc(18px + env(safe-area-inset-bottom));
+    display:flex; align-items:flex-end; justify-content:space-between;
+  }
+  .cruz { display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); }
+  .cruz button { grid-area:var(--pos); }
+  #mando button {
+    border:2px solid var(--claro); background:rgba(11,26,74,.55); color:var(--claro);
+    border-radius:12px; font:inherit; font-size:20px; font-weight:700; cursor:pointer;
+  }
+  #mando button:active { background:var(--claro); color:var(--marino); }
+  #fuego { width:84px; height:84px; border-radius:50%; font-size:15px; }
+
+  /* Pantallas de menú, victoria y derrota */
+  #capa {
+    position:fixed; inset:0; z-index:10;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    gap:18px; padding:24px; text-align:center;
+    background:rgba(11,26,74,.94);
+  }
+  #capa.visible { display:flex; }
+  #capa h1 { font-size:clamp(28px,9vw,52px); margin:0; letter-spacing:-.02em; }
+  #capa p { margin:0; max-width:34ch; opacity:.8; }
+  #capa .teclas { font-size:13px; opacity:.6; line-height:1.9; }
+  #capa button {
+    min-height:48px; padding:0 26px; margin-top:4px;
+    border:none; border-radius:999px; cursor:pointer;
+    font:inherit; font-size:16px; font-weight:800;
+    background:var(--claro); color:var(--marino);
+  }
+  #capa a { color:var(--claro); font-size:14px; opacity:.7; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span><b>VIDA</b> <span id="vida">♥♥♥</span></span>
+  <span><b>COHETES</b> <span id="municion">5</span></span>
+  <span><b>ENEMIGOS</b> <span id="enemigos">5</span></span>
+  <span id="poder"></span>
+</div>
+
+<canvas id="lienzo"></canvas>
+
+<div id="mando" aria-hidden="true">
+  <div class="cruz">
+    <button data-dir="arriba"    style="--pos:1/2">▲</button>
+    <button data-dir="izquierda" style="--pos:2/1">◀</button>
+    <button data-dir="derecha"   style="--pos:2/3">▶</button>
+    <button data-dir="abajo"     style="--pos:3/2">▼</button>
+  </div>
+  <button id="fuego">FUEGO</button>
+</div>
+
+<div id="capa">
+  <h1 id="capa-titulo">Tanques</h1>
+  <p id="capa-texto"></p>
+  <button id="capa-boton">Jugar</button>
+  <p class="teclas">
+    Flechas o W A S D para moverte · <b>O</b> para disparar · <b>Espacio</b> para el menú
+  </p>
+  <a href="/">Volver a Stumpffia</a>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   TANQUES — Stumpffia
+   Un solo archivo, sin librerías, sin peticiones de red.
+   Los sprites vienen empacados desde sprites/*.json con empacar.mjs.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* SPRITES-INICIO */
+// Generado por empacar.mjs desde sprites/*.json — no editar a mano.
+const NOMBRES = ["tanque_arriba_1","tanque_arriba_2","tanque_abajo_1","tanque_abajo_2","tanque_derecha_1","tanque_derecha_2","tanque_izquierda_1","tanque_izquierda_2","suelo","piedras","troncos","barrera_metal","roca","lago_borde_no","lago_borde_n","lago_borde_ne","lago_borde_o","lago_agua","lago_borde_e","lago_borde_so","lago_borde_s","lago_borde_se","montana_cima","montana_ladera_izq","montana_ladera_der","montana_interior","objetos_cohete_arriba_1","objetos_cohete_arriba_2","objetos_cohete_derecha_1","objetos_cohete_derecha_2","objetos_cohete_abajo_1","objetos_cohete_abajo_2","objetos_cohete_izquierda_1","objetos_cohete_izquierda_2","objetos_supercohete_arriba_1","objetos_supercohete_arriba_2","objetos_supercohete_derecha_1","objetos_supercohete_derecha_2","objetos_supercohete_abajo_1","objetos_supercohete_abajo_2","objetos_supercohete_izquierda_1","objetos_supercohete_izquierda_2","objetos_explosion_explosion_1","objetos_explosion_explosion_2","objetos_explosion_explosion_3","objetos_poderes_velocidad_x2","objetos_poderes_dano_x2","objetos_poderes_cohetes_x2","objetos_poderes_supercohete"];
+const BITS = "AYABgAGAYYatte23rbXtt6vV69er1evXrDXv92AGAAABgAGAAYBhhu23rbXtt62169er1evXq9XsN6/1YAYAAAAAYAbv96w169er1evXq9Xtt6217bettWGGAYABgAGAAABgBq/17Der1evXq9Xr16217bette23YYYBgAGAAYA/8Gqof/gAAD/wMPAvAC//L/8vADDwP/AAAH/4aqg/8D/wVVh/+AAAP/Aw8C8AL/8v/y8AMPA/8AAAf/hVWD/wD/wVVh/+AAAP/A8MAPT/9P/0APQPDA/8AAAf/hVWD/wP/BqqH/4AAA/8DwwA9P/0//QA9A8MD/wAAB/+GqoP/AAAAAAAEAAAAAAAAEAAAAAAAAAAAEAAAAAAAAAABAAAAAAAABwAPgB7HHc+PjYAHAAADwAfgD3OO98fmwAOAAAAAAfAD+AccBuwGrAbsDx4f/zjx9271avdu+PHfn4AAAAAAAAYAP//gAD//xgA//+AANtt//8YABgAGAA8AAAAAAAAAAPgD/gZ/Df2P+p/9X/W/ev71f+r/9V/qj/8AAAAAAAAAA8A8AMPBn8N+Qv3E/8X/xefF+cv/y//Lfkv9wAAAAD//wAA//////n59/f/////n5/n5//////5+ff3AAAAAPAADwDwwP5g/7D30P/I/+if6Ofo//T/9Pn09/Qv/y//L58v5y//L/8t+S/3L/8v/y+fL+cv/y//Lfkv9/////+fn+fn//////n59/f/////n5/n5//////5+ff3//T/9J+05/T/9P/0+fT39P/0//SftOf0//T/9Pn09/Qv/y//L58v5xf/F/8X+RP3C/8N/wZ/Aw8A8AAPAAAAAP////+fn+fn//////n59/f//////////wAA//8AAAAA//T/9J+05/T/6P/o+ej3yP/Q/7D+YPDADwDwAAAAAAABgAGAA8ADwAfgB8APoA/QH6gd0DvoP/R/6j+039r/9QABAAEAAwAPAB8APwBfAP8B/wH9A/sP/x//P79f3///gABAAKAAUACoAFQAqgDVAOqA9UD6oP1Q/qi/VN+q/9X///39+/v/////v7/f3//////9/fv7/////7+/39///wGAA8ADwAfgBmAGYAfgB+AH4A/wH/gZmAPAAYAAAAAAAYADwAPAB+AGYAZgB+AH4AfgD/Af+BmYAYADwAGAAYAAAAAAAAAMAA4AB/gX/j/PP88X/gf4DgAMAAAAAAAAAAAAAAAAAAwADgAH+Cf+/8//zyf+B/gOAAwAAAAAAAAAAAAAAAGAA8AZmB/4D/AH4AfgB+AGYAZgB+ADwAPAAYABgAGAA8ABgBmYH/gP8AfgB+AH4AZgBmAH4APAA8ABgAAAAAAAAAAwAHAf4H/o8/zz/H/oH+AAcAAwAAAAAAAAAAAAAAAAADAAcB/gf+Tz//P/f+Qf4ABwADAAAAAAAAABgAPAB+AP8A5wDnAP8AgQD/Af+D/8b/ZGYgfgA8ABgAGAA8AH4A/wDnAOcA/wCBAP8B/4P/xv9kZiF+gP8CfkAAAYAAwABgAP+D98f37vT+9Pf34/fA/4BgAMABgAAAAAABgAjAAmAE/4/3z/fu9P70//fv98T/gmAIwAGAAAAAGAA8AH4EZib/Y//B/4D/AIEA/wDnAOcA/wB+ADwAGAJ+QP8BfoRmJv9j/8H/gP8AgQD/AOcA5wD/AH4APAAYAAAAAYADAAYB/wPvx+/vL38vd+/j78H/AAYAAwABgAAAAAABgAMQBkH/I+/37/8vfy937/Pv8f8gBkADEAGAAAAAAAAAAACBAEIAGAA8AH4AfgA8ABgAQgCBAAAAAAAAAAAAGAIYQTyA/wHngcOHgeeB4cOB54D/ATyCGEAYAAAAAAQYIAABAIBCAAACAEgkGCQSAEAAAEIBAIAABBggAAf/6AAZjBjGGGMYYxjGGYwYABgOGKIYThioGA4YABf/5//oABoYWTyY/xj/GTyaGFgAGA4YohhOGKgYDhgAF//n/+gAGEEY45jjmOOZ99hBGAAYDhiiGE4YqBgOGAAX/+f/6AAYGBg8GH4YZhhmGH4YQhj/Gb2ZPJg8GBgYABf/4=";
+/* SPRITES-FIN */
+
+const MARINO = "#0B1A4A";
+const CLARO  = "#7EC8F2";
+const TAM    = 16;          // lado de un sprite, en píxeles
+
+/* ───────────────── Atlas: los bits empacados se vuelven imágenes ───────────────── */
+
+const indice = {};
+NOMBRES.forEach((n, i) => { indice[n] = i; });
+
+const bits = (() => {
+  const bin = atob(BITS);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+})();
+
+function encendido(n, x, y) {
+  const i = y * TAM + x;
+  return (bits[n * 32 + (i >> 3)] >> (7 - (i & 7))) & 1;
+}
+
+/* Tres versiones de cada sprite:
+     relleno  — el 0 se pinta de azul marino (para el terreno)
+     recorte  — el 0 queda transparente (para tanques, cohetes, objetos)
+     trama    — como recorte pero en damero, para que el enemigo se vea
+                más apagado que tú sin necesidad de un tercer color   */
+function construirAtlas(modo) {
+  const lienzo = document.createElement("canvas");
+  lienzo.width = TAM * NOMBRES.length;
+  lienzo.height = TAM;
+  const ctx = lienzo.getContext("2d");
+  const img = ctx.createImageData(lienzo.width, TAM);
+  const cl = [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
+
+  for (let n = 0; n < NOMBRES.length; n++) {
+    for (let y = 0; y < TAM; y++) {
+      for (let x = 0; x < TAM; x++) {
+        const o = (y * lienzo.width + n * TAM + x) * 4;
+        const vivo = encendido(n, x, y);
+        let color = null;
+        if (vivo) {
+          if (modo === "trama" && ((x + y) & 1)) color = null;
+          else color = cl;
+        } else if (modo === "relleno") {
+          color = ma;
+        }
+        if (color) {
+          img.data[o] = color[0]; img.data[o+1] = color[1];
+          img.data[o+2] = color[2]; img.data[o+3] = 255;
+        }
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return lienzo;
+}
+
+const ATLAS = {
+  relleno: construirAtlas("relleno"),
+  recorte: construirAtlas("recorte"),
+  trama:   construirAtlas("trama")
+};
+
+/* ───────────────── El mundo ───────────────── */
+
+/* Cada tipo de terreno: con qué sprite se dibuja, si bloquea al tanque,
+   si bloquea al cohete y cuántos impactos aguanta. */
+const TERRENO = {
+  suelo:        { sprite:"suelo",        pasa:true,  balas:true,  vida:0 },
+  borde:        { sprite:"barrera_metal",pasa:false, balas:false, vida:Infinity },
+  piedras:      { sprite:"piedras",      pasa:false, balas:false, vida:1 },
+  troncos:      { sprite:"troncos",      pasa:false, balas:false, vida:1 },
+  barrera_metal:{ sprite:"barrera_metal",pasa:false, balas:false, vida:1 },
+  roca:         { sprite:"roca",         pasa:false, balas:false, vida:1 },
+  /* el lago es lo único que los cohetes cruzan */
+  lago:         { sprite:"lago_agua",    pasa:false, balas:true,  vida:Infinity },
+  /* la montaña aguanta dos impactos por bloque */
+  montana:      { sprite:"montana_interior", pasa:false, balas:false, vida:2 }
+};
+
+const mundo = {
+  ancho: 0, alto: 0,
+  tipo: null,      // nombre de terreno por casilla
+  sprite: null,    // qué sprite concreto usar (los lagos y montañas tienen bordes)
+  vida: null,      // impactos que le quedan a la casilla
+  rojo: null       // true = aquí no caen poderes
+};
+
+function enMapa(x, y) { return x >= 0 && y >= 0 && x < mundo.ancho && y < mundo.alto; }
+function tipoEn(x, y) { return enMapa(x, y) ? mundo.tipo[y * mundo.ancho + x] : "borde"; }
+function pasaTanque(x, y) { return TERRENO[tipoEn(x, y)].pasa; }
+function pasaBala(x, y)   { return TERRENO[tipoEn(x, y)].balas; }
+
+function ponerCasilla(x, y, tipo, sprite, rojo) {
+  if (!enMapa(x, y)) return;
+  const i = y * mundo.ancho + x;
+  mundo.tipo[i] = tipo;
+  mundo.sprite[i] = sprite || TERRENO[tipo].sprite;
+  mundo.vida[i] = TERRENO[tipo].vida;
+  if (rojo !== undefined) mundo.rojo[i] = rojo;
+}
+
+/* Números al azar reproducibles: el mismo número de partida da el mismo mapa. */
+let semilla = 1;
+function azar() {
+  semilla = (semilla * 1103515245 + 12345) & 0x7fffffff;
+  return semilla / 0x7fffffff;
+}
+const entero = (n) => Math.floor(azar() * n);
+
+/* --- Lagos y montañas se arman con las reglas que traen los sprites --- */
+
+const ESQUINAS_LAGO = [
+  ["lago_borde_no", "lago_borde_n", "lago_borde_ne"],
+  ["lago_borde_o",  "lago_agua",    "lago_borde_e"],
+  ["lago_borde_so", "lago_borde_s", "lago_borde_se"]
+];
+
+function dibujarLago(x0, y0, w, h) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const fy = y === 0 ? 0 : y === h - 1 ? 2 : 1;
+      const fx = x === 0 ? 0 : x === w - 1 ? 2 : 1;
+      ponerCasilla(x0 + x, y0 + y, "lago", ESQUINAS_LAGO[fy][fx], true);
+    }
+  }
+}
+
+function dibujarMontana(cx, y0, altura) {
+  ponerCasilla(cx, y0, "montana", "montana_cima", true);
+  for (let k = 1; k < altura; k++) {
+    const y = y0 + k;
+    ponerCasilla(cx - k, y, "montana", "montana_ladera_izq", true);
+    ponerCasilla(cx + k, y, "montana", "montana_ladera_der", true);
+    for (let x = cx - k + 1; x < cx + k; x++) {
+      ponerCasilla(x, y, "montana", "montana_interior", true);
+    }
+  }
+}
+
+function libre(x0, y0, w, h) {
+  for (let y = y0 - 1; y <= y0 + h; y++) {
+    for (let x = x0 - 1; x <= x0 + w; x++) {
+      if (!enMapa(x, y) || tipoEn(x, y) !== "suelo") return false;
+    }
+  }
+  return true;
+}
+
+function generarMapa(ancho, alto) {
+  mundo.ancho = ancho; mundo.alto = alto;
+  const n = ancho * alto;
+  mundo.tipo = new Array(n); mundo.sprite = new Array(n);
+  mundo.vida = new Array(n); mundo.rojo = new Array(n).fill(false);
+
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const orilla = x === 0 || y === 0 || x === ancho - 1 || y === alto - 1;
+      ponerCasilla(x, y, orilla ? "borde" : "suelo", null, orilla);
+    }
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const w = 3 + entero(4), h = 3 + entero(3);
+    for (let intento = 0; intento < 30; intento++) {
+      const x = 2 + entero(ancho - w - 4), y = 2 + entero(alto - h - 4);
+      if (libre(x, y, w, h)) { dibujarLago(x, y, w, h); break; }
+    }
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const a = 3 + entero(2);
+    for (let intento = 0; intento < 30; intento++) {
+      const cx = 2 + a + entero(ancho - 2 * a - 4), y = 2 + entero(alto - a - 4);
+      if (libre(cx - a, y, a * 2 + 1, a)) { dibujarMontana(cx, y, a); break; }
+    }
+  }
+
+  const sueltos = ["piedras", "troncos", "barrera_metal", "roca"];
+  for (let i = 0; i < Math.floor(n * 0.08); i++) {
+    const x = 1 + entero(ancho - 2), y = 1 + entero(alto - 2);
+    if (tipoEn(x, y) === "suelo") ponerCasilla(x, y, sueltos[entero(sueltos.length)]);
+  }
+}
+
+/* Casillas a las que se puede llegar caminando desde (x,y). Sirve para no
+   dejar enemigos encerrados en un hueco del que nunca podrían salir. */
+function alcanzablesDesde(x0, y0) {
+  const visto = new Uint8Array(mundo.ancho * mundo.alto);
+  const cola = [[x0, y0]];
+  visto[y0 * mundo.ancho + x0] = 1;
+  while (cola.length) {
+    const [x, y] = cola.pop();
+    for (const d of Object.values(DIRS)) {
+      const nx = x + d.dx, ny = y + d.dy;
+      if (!enMapa(nx, ny) || visto[ny * mundo.ancho + nx] || !pasaTanque(nx, ny)) continue;
+      visto[ny * mundo.ancho + nx] = 1;
+      cola.push([nx, ny]);
+    }
+  }
+  return visto;
+}
+
+/* ───────────────── Tanques ───────────────── */
+
+const DIRS = {
+  arriba:    { dx: 0, dy:-1 },
+  abajo:     { dx: 0, dy: 1 },
+  izquierda: { dx:-1, dy: 0 },
+  derecha:   { dx: 1, dy: 0 }
+};
+
+const VIDA_MAX = 3;          // "soporta 3 misiles"
+const MUNICION_MAX = 5;      // "solo 5 balas"
+const RECARGA = 2;           // un cohete cada 2 segundos
+const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
+const ALCANCE = 20;          // casillas que vuela un cohete
+const VISTA_ENEMIGO = 9;     // radio en el que un enemigo dispara a otro tanque
+const PERSECUCION = 26;      // radio en el que se pone en marcha hacia él
+const GRACIA = 0.8;          // segundos invulnerable tras recibir un impacto
+
+function nuevoTanque(x, y, esJugador) {
+  return {
+    x, y,                    // casilla actual
+    px: x, py: y,            // posición dibujada (se desliza hacia x,y)
+    dir: esJugador ? "arriba" : "abajo",
+    jugador: esJugador,
+    vida: VIDA_MAX,
+    municion: MUNICION_MAX,
+    recarga: 0,
+    sinAtacar: 0,            // segundos sin disparar (para regenerar)
+    gracia: 0,               // invulnerabilidad corta tras un impacto
+    moviendo: false,
+    pasoVelocidad: 0.16,     // segundos por casilla
+    cuadro: 0,               // alterna _1 y _2 al avanzar
+    enfriamiento: 0,
+    vivo: true,
+    /* poderes */
+    superCohete: false,
+    danoDoble: 0,
+    rapido: 0,
+    municionDoble: 0,
+    /* sólo enemigos */
+    pensar: 0,
+    objetivo: null
+  };
+}
+
+const juego = {
+  estado: "menu",            // menu | jugando | ganaste | perdiste
+  jugador: null,
+  tanques: [],
+  cohetes: [],
+  explosiones: [],
+  poderes: [],
+  siguientePoder: 6,
+  tiempo: 0
+};
+
+function municionMax(t) { return t.municionDoble > 0 ? MUNICION_MAX * 2 : MUNICION_MAX; }
+
+/* ───────────────── Disparos ───────────────── */
+
+function disparar(t) {
+  if (!t.vivo || t.municion <= 0 || t.enfriamiento > 0) return false;
+  t.municion--;
+  t.sinAtacar = 0;
+  t.enfriamiento = t.jugador ? 0.22 : 1.5;
+
+  const d = DIRS[t.dir];
+  juego.cohetes.push({
+    x: t.x + d.dx, y: t.y + d.dy,
+    px: t.x + d.dx, py: t.y + d.dy,
+    dir: t.dir,
+    de: t,
+    super: t.superCohete,
+    dano: (t.superCohete ? 2 : 1) * (t.danoDoble > 0 ? 2 : 1),
+    recorrido: 0,
+    cuadro: 0
+  });
+  t.superCohete = false;
+  return true;
+}
+
+function explotar(x, y) {
+  juego.explosiones.push({ x, y, t: 0 });
+}
+
+/* Un cohete llegó a una casilla: rompe terreno, hiere tanques y revienta. */
+function impactar(c) {
+  const celdas = c.super
+    ? [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]]   // 3x3
+    : [[0,0]];
+
+  for (const [ox, oy] of celdas) {
+    const x = c.x + ox, y = c.y + oy;
+    if (!enMapa(x, y)) continue;
+
+    const i = y * mundo.ancho + x;
+    const terreno = TERRENO[mundo.tipo[i]];
+    if (terreno.vida > 0 && terreno.vida !== Infinity) {
+      mundo.vida[i] -= c.dano;
+      if (mundo.vida[i] <= 0) ponerCasilla(x, y, "suelo");
+    }
+
+    for (const t of juego.tanques) {
+      if (t.vivo && t.x === x && t.y === y && t !== c.de) herir(t, c.dano);
+    }
+  }
+  explotar(c.x, c.y);
+}
+
+function herir(t, dano) {
+  if (t.gracia > 0) return;          // acaba de recibir un impacto
+  t.vida -= dano;
+  t.gracia = GRACIA;
+  if (t.vida <= 0) {
+    t.vivo = false;
+    explotar(t.x, t.y);
+    if (t.jugador) terminar("perdiste");
+    else if (juego.tanques.every((o) => o.jugador || !o.vivo)) terminar("ganaste");
+  }
+}
+
+/* ───────────────── Poderes ───────────────── */
+
+const PODERES = ["velocidad_x2", "dano_x2", "cohetes_x2", "supercohete"];
+
+function soltarPoder() {
+  for (let intento = 0; intento < 60; intento++) {
+    const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
+    const i = y * mundo.ancho + x;
+    if (mundo.tipo[i] !== "suelo" || mundo.rojo[i]) continue;
+    if (juego.poderes.some((p) => p.x === x && p.y === y)) continue;
+    juego.poderes.push({ x, y, clase: PODERES[entero(PODERES.length)] });
+    return;
+  }
+}
+
+function recoger(t, poder) {
+  if (poder.clase === "velocidad_x2") t.rapido = 20;
+  else if (poder.clase === "dano_x2") t.danoDoble = 20;
+  else if (poder.clase === "cohetes_x2") { t.municionDoble = 20; t.municion = municionMax(t); }
+  else if (poder.clase === "supercohete") t.superCohete = true;
+}
+
+/* ───────────────── Movimiento ───────────────── */
+
+function ocupada(x, y, salvo) {
+  return juego.tanques.some((t) => t.vivo && t !== salvo && t.x === x && t.y === y);
+}
+
+function mover(t, dir) {
+  if (t.moviendo || !t.vivo) return false;
+  t.dir = dir;
+  const d = DIRS[dir];
+  const nx = t.x + d.dx, ny = t.y + d.dy;
+  if (!pasaTanque(nx, ny) || ocupada(nx, ny, t)) return false;
+  t.x = nx; t.y = ny;
+  t.moviendo = true;
+  t.cuadro ^= 1;
+  return true;
+}
+
+/* ───────────────── Cerebro de los enemigos ───────────────── */
+
+/* Mira en línea recta desde (x,y): devuelve qué encuentra primero. */
+function mirar(x, y, dir, salvo) {
+  const d = DIRS[dir];
+  for (let paso = 1; paso <= ALCANCE; paso++) {
+    const cx = x + d.dx * paso, cy = y + d.dy * paso;
+    if (!enMapa(cx, cy)) return { que: "borde", paso };
+    const t = juego.tanques.find((o) => o.vivo && o !== salvo && o.x === cx && o.y === cy);
+    if (t) return { que: "tanque", tanque: t, paso };
+    if (tipoEn(cx, cy) === "borde") return { que: "borde", paso };
+    if (!pasaBala(cx, cy)) return { que: "muro", paso };
+  }
+  return { que: "nada", paso: ALCANCE };
+}
+
+function pensarEnemigo(t, dt) {
+  t.pensar -= dt;
+  if (t.pensar > 0) return;
+  t.pensar = 0.25;
+
+  /* ¿Hay algún otro tanque cerca? Le dispara a quien sea, incluso a los suyos. */
+  let cerca = null, mejor = Infinity;
+  for (const o of juego.tanques) {
+    if (!o.vivo || o === t) continue;
+    const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
+    if (dist < mejor && dist <= PERSECUCION) { mejor = dist; cerca = o; }
+  }
+  t.objetivo = cerca;
+
+  /* Si está alineado con alguien, le apunta. Nunca gasta tiros contra el borde. */
+  for (const dir of Object.keys(DIRS)) {
+    const vista = mirar(t.x, t.y, dir, t);
+    if (vista.que === "tanque" && vista.paso <= VISTA_ENEMIGO) {
+      t.dir = dir;
+      if (disparar(t)) return;        // sin munición: mejor moverse que quedarse plantado
+      break;
+    }
+    /* un muro rompible delante del objetivo: vale la pena abrirlo a tiros */
+    if (vista.que === "muro" && cerca && vista.paso <= 3) {
+      const haciaObjetivo =
+        (dir === "arriba"    && cerca.y < t.y && cerca.x === t.x) ||
+        (dir === "abajo"     && cerca.y > t.y && cerca.x === t.x) ||
+        (dir === "izquierda" && cerca.x < t.x && cerca.y === t.y) ||
+        (dir === "derecha"   && cerca.x > t.x && cerca.y === t.y);
+      if (haciaObjetivo) { t.dir = dir; if (disparar(t)) return; break; }
+    }
+  }
+
+  /* Si no, se acerca al objetivo; y si no hay ninguno, deambula. */
+  let opciones;
+  if (cerca) {
+    const dx = cerca.x - t.x, dy = cerca.y - t.y;
+    opciones = Math.abs(dx) > Math.abs(dy)
+      ? [dx > 0 ? "derecha" : "izquierda", dy > 0 ? "abajo" : "arriba"]
+      : [dy > 0 ? "abajo" : "arriba", dx > 0 ? "derecha" : "izquierda"];
+  } else {
+    opciones = [t.dir];
+  }
+  opciones.push(["arriba", "abajo", "izquierda", "derecha"][entero(4)]);
+  for (const dir of opciones) if (mover(t, dir)) return;
+}
+
+/* ───────────────── Bucle ───────────────── */
+
+const teclas = Object.create(null);
+let ultimoCuadro = 0;
+
+function actualizar(dt) {
+  juego.tiempo += dt;
+
+  /* --- jugador --- */
+  const j = juego.jugador;
+  if (j.vivo) {
+    const dir =
+      (teclas.ArrowUp    || teclas.KeyW) ? "arriba" :
+      (teclas.ArrowDown  || teclas.KeyS) ? "abajo" :
+      (teclas.ArrowLeft  || teclas.KeyA) ? "izquierda" :
+      (teclas.ArrowRight || teclas.KeyD) ? "derecha" : null;
+    if (dir) mover(j, dir);
+    if (teclas.KeyO) disparar(j);
+  }
+
+  /* --- todos los tanques --- */
+  for (const t of juego.tanques) {
+    if (!t.vivo) continue;
+
+    /* deslizamiento hacia la casilla destino */
+    if (t.moviendo) {
+      const paso = (t.rapido > 0 ? t.pasoVelocidad / 2 : t.pasoVelocidad);
+      const avance = dt / paso;
+      t.px += Math.sign(t.x - t.px) * Math.min(avance, Math.abs(t.x - t.px));
+      t.py += Math.sign(t.y - t.py) * Math.min(avance, Math.abs(t.y - t.py));
+      if (t.px === t.x && t.py === t.y) t.moviendo = false;
+    }
+
+    if (t.enfriamiento > 0) t.enfriamiento -= dt;
+
+    /* munición: un cohete cada 2 segundos */
+    t.recarga += dt;
+    while (t.recarga >= RECARGA) {
+      t.recarga -= RECARGA;
+      if (t.municion < municionMax(t)) t.municion++;
+    }
+
+    /* vida: vuelve una si aguanta 15 segundos sin disparar */
+    t.sinAtacar += dt;
+    if (t.gracia > 0) t.gracia -= dt;
+    if (t.sinAtacar >= REGENERACION && t.vida < VIDA_MAX) {
+      t.vida++;
+      t.sinAtacar = 0;
+    }
+
+    for (const p of ["danoDoble", "rapido", "municionDoble"]) {
+      if (t[p] > 0) t[p] = Math.max(0, t[p] - dt);
+    }
+
+    if (!t.jugador) pensarEnemigo(t, dt);
+
+    /* poderes del suelo */
+    for (let i = juego.poderes.length - 1; i >= 0; i--) {
+      const p = juego.poderes[i];
+      if (p.x === t.x && p.y === t.y) { recoger(t, p); juego.poderes.splice(i, 1); }
+    }
+  }
+
+  /* --- cohetes --- */
+  const VELOCIDAD_COHETE = 11;   // casillas por segundo
+  for (let i = juego.cohetes.length - 1; i >= 0; i--) {
+    const c = juego.cohetes[i];
+    const d = DIRS[c.dir];
+    c.px += d.dx * VELOCIDAD_COHETE * dt;
+    c.py += d.dy * VELOCIDAD_COHETE * dt;
+    c.cuadro = (juego.tiempo * 12 | 0) & 1;
+
+    /* avanza casilla a casilla para no saltarse obstáculos */
+    while (Math.abs(c.px - c.x) >= 1 || Math.abs(c.py - c.y) >= 1) {
+      c.x += d.dx; c.y += d.dy; c.recorrido++;
+
+      const golpeado = juego.tanques.find(
+        (t) => t.vivo && t !== c.de && t.x === c.x && t.y === c.y);
+
+      if (!enMapa(c.x, c.y) || golpeado || !pasaBala(c.x, c.y)) {
+        impactar(c);
+        juego.cohetes.splice(i, 1);
+        break;
+      }
+      if (c.recorrido >= ALCANCE) {       /* se acabó el alcance: revienta igual */
+        impactar(c);
+        juego.cohetes.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  /* --- explosiones: tres cuadros y desaparecen --- */
+  for (let i = juego.explosiones.length - 1; i >= 0; i--) {
+    juego.explosiones[i].t += dt;
+    if (juego.explosiones[i].t > 0.27) juego.explosiones.splice(i, 1);
+  }
+
+  /* --- aparición de poderes --- */
+  juego.siguientePoder -= dt;
+  if (juego.siguientePoder <= 0) {
+    juego.siguientePoder = 9 + azar() * 6;
+    if (juego.poderes.length < 3) soltarPoder();
+  }
+}
+
+/* ───────────────── Dibujo ───────────────── */
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d", { alpha: false });
+let escala = 3, anchoVista = 0, altoVista = 0;
+
+function ajustarLienzo() {
+  const w = window.innerWidth, h = window.innerHeight;
+  escala = Math.max(2, Math.min(4, Math.floor(Math.min(w / (16 * TAM), h / (14 * TAM)))));
+  anchoVista = Math.ceil(w / (TAM * escala)) + 2;
+  altoVista = Math.ceil(h / (TAM * escala)) + 2;
+  lienzo.width = w; lienzo.height = h;
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener("resize", ajustarLienzo);
+
+function poner(atlas, nombre, x, y) {
+  const n = indice[nombre];
+  if (n === undefined) return;
+  ctx.drawImage(atlas, n * TAM, 0, TAM, TAM,
+                Math.round(x), Math.round(y), TAM * escala, TAM * escala);
+}
+
+function dibujar() {
+  const j = juego.jugador;
+  const paso = TAM * escala;
+
+  /* la cámara deja siempre al jugador en el centro exacto */
+  const camX = j.px * paso - lienzo.width / 2 + paso / 2;
+  const camY = j.py * paso - lienzo.height / 2 + paso / 2;
+  const aX = (x) => x * paso - camX;
+  const aY = (y) => y * paso - camY;
+
+  ctx.fillStyle = MARINO;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+
+  const x0 = Math.floor(camX / paso) - 1, y0 = Math.floor(camY / paso) - 1;
+  for (let y = y0; y < y0 + altoVista + 1; y++) {
+    for (let x = x0; x < x0 + anchoVista + 1; x++) {
+      if (!enMapa(x, y)) continue;
+      poner(ATLAS.relleno, mundo.sprite[y * mundo.ancho + x], aX(x), aY(y));
+    }
+  }
+
+  for (const p of juego.poderes) poner(ATLAS.recorte, "objetos_poderes_" + p.clase, aX(p.x), aY(p.y));
+
+  for (const t of juego.tanques) {
+    if (!t.vivo) continue;
+    const nombre = "tanque_" + t.dir + "_" + (t.cuadro + 1);
+    poner(t.jugador ? ATLAS.recorte : ATLAS.trama, nombre, aX(t.px), aY(t.py));
+  }
+
+  for (const c of juego.cohetes) {
+    const familia = c.super ? "supercohete" : "cohete";
+    poner(ATLAS.recorte, "objetos_" + familia + "_" + c.dir + "_" + (c.cuadro + 1), aX(c.px), aY(c.py));
+  }
+
+  for (const e of juego.explosiones) {
+    const cuadro = Math.min(3, 1 + Math.floor(e.t / 0.09));
+    poner(ATLAS.recorte, "objetos_explosion_explosion_" + cuadro, aX(e.x), aY(e.y));
+  }
+}
+
+/* ───────────────── Marcador ───────────────── */
+
+const elVida = document.getElementById("vida");
+const elMunicion = document.getElementById("municion");
+const elEnemigos = document.getElementById("enemigos");
+const elPoder = document.getElementById("poder");
+
+function pintarMarcador() {
+  const j = juego.jugador;
+  elVida.textContent = "♥".repeat(Math.max(0, j.vida)) + "·".repeat(VIDA_MAX - Math.max(0, j.vida));
+  elMunicion.textContent = j.municion + "/" + municionMax(j);
+  elEnemigos.textContent = juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+
+  const activos = [];
+  if (j.superCohete) activos.push("SUPERCOHETE");
+  if (j.danoDoble > 0) activos.push("DAÑO ×2");
+  if (j.rapido > 0) activos.push("VELOCIDAD ×2");
+  if (j.municionDoble > 0) activos.push("COHETES ×2");
+  elPoder.textContent = activos.join(" · ");
+  elPoder.classList.toggle("visible", activos.length > 0);
+}
+
+/* ───────────────── Pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+
+function mostrarCapa(titulo, texto, boton) {
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capa.classList.add("visible");
+}
+
+function terminar(resultado) {
+  juego.estado = resultado;
+  if (resultado === "ganaste") {
+    mostrarCapa("¡Ganaste!", "Acabaste con todos los tanques enemigos.", "Jugar otra vez");
+  } else {
+    mostrarCapa("Perdiste", "Tu tanque fue destruido.", "Intentar otra vez");
+  }
+}
+
+function abrirMenu() {
+  if (juego.estado !== "jugando") return;
+  juego.estado = "menu";
+  mostrarCapa("Pausa", "", "Seguir jugando");
+}
+
+function botonCapa() {
+  if (juego.estado === "menu" && juego.jugador && juego.jugador.vivo) {
+    juego.estado = "jugando";
+    capa.classList.remove("visible");
+  } else {
+    empezar();
+  }
+}
+capaBoton.addEventListener("click", botonCapa);
+
+/* ───────────────── Arranque ───────────────── */
+
+function empezar(numeroEnemigos) {
+  semilla = (Date.now() & 0xffff) + 1;
+  generarMapa(36, 30);
+
+  juego.tanques = [];
+  juego.cohetes = [];
+  juego.explosiones = [];
+  juego.poderes = [];
+  juego.siguientePoder = 6;
+  juego.tiempo = 0;
+
+  /* el jugador arranca en el centro, en una casilla despejada */
+  let jx = mundo.ancho >> 1, jy = mundo.alto >> 1;
+  for (let r = 0; r < 20 && !pasaTanque(jx, jy); r++) { jx++; if (jx >= mundo.ancho - 1) { jx = 1; jy++; } }
+  ponerCasilla(jx, jy, "suelo");
+  juego.jugador = nuevoTanque(jx, jy, true);
+  juego.tanques.push(juego.jugador);
+
+  const cuantos = numeroEnemigos === undefined ? 5 : numeroEnemigos;
+  const alcanzable = alcanzablesDesde(jx, jy);
+  let puestos = 0, intentos = 0;
+  while (puestos < cuantos && intentos++ < 4000) {
+    const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
+    if (!alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
+    if (Math.abs(x - jx) + Math.abs(y - jy) < 16) continue;
+    if (x === jx || y === jy) continue;   // nunca en linea de tiro directa
+    juego.tanques.push(nuevoTanque(x, y, false));
+    puestos++;
+  }
+
+  juego.estado = "jugando";
+  capa.classList.remove("visible");
+  ajustarLienzo();
+}
+
+/* ───────────────── Controles ───────────────── */
+
+addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (juego.estado === "jugando") abrirMenu();
+    else botonCapa();
+    return;
+  }
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyO"].includes(e.code)) {
+    e.preventDefault();
+    teclas[e.code] = true;
+  }
+});
+addEventListener("keyup", (e) => { teclas[e.code] = false; });
+addEventListener("blur", () => { for (const k in teclas) teclas[k] = false; });
+
+/* Mando táctil */
+if (matchMedia("(hover: none)").matches) document.body.classList.add("tactil");
+const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
+for (const boton of document.querySelectorAll("#mando [data-dir]")) {
+  const code = mapaTactil[boton.dataset.dir];
+  const on  = (e) => { e.preventDefault(); teclas[code] = true; };
+  const off = (e) => { e.preventDefault(); teclas[code] = false; };
+  boton.addEventListener("pointerdown", on);
+  boton.addEventListener("pointerup", off);
+  boton.addEventListener("pointercancel", off);
+  boton.addEventListener("pointerleave", off);
+}
+const fuego = document.getElementById("fuego");
+fuego.addEventListener("pointerdown", (e) => { e.preventDefault(); teclas.KeyO = true; });
+fuego.addEventListener("pointerup",   (e) => { e.preventDefault(); teclas.KeyO = false; });
+
+/* ───────────────── Marcha ───────────────── */
+
+function cuadro(ahora) {
+  requestAnimationFrame(cuadro);
+  const dt = Math.min(0.05, (ahora - ultimoCuadro) / 1000 || 0);
+  ultimoCuadro = ahora;
+  if (juego.estado === "jugando") actualizar(dt);
+  if (juego.jugador) { dibujar(); pintarMarcador(); }
+}
+
+/* API mínima para probar el juego desde la consola */
+window.TANQUES = { juego, empezar, mundo, teclas, disparar, mover, actualizar };
+
+ajustarLienzo();
+empezar();
+juego.estado = "menu";
+mostrarCapa("Tanques", "Acaba con los cinco tanques enemigos. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.", "Jugar");
+requestAnimationFrame(cuadro);
+</script>
+</body>
+</html>

@@ -15,6 +15,14 @@ window.STUMPFFIA = {
 
   juegos: [
     {
+      id: "tanques",
+      nombre: "Tanques",
+      emoji: "💥",
+      desc: "Cinco tanques enemigos te buscan. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.",
+      peso: "11 KB",
+      pronto: false
+    },
+    {
       id: "salta-rana",
       nombre: "Salta, Rana",
       emoji: "🐸",
