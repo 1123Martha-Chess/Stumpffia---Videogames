@@ -30,15 +30,22 @@
   /* Marcador: vidas, munición y poder activo */
   #hud {
     position:fixed; top:0; left:0; right:0; z-index:3;
-    display:flex; align-items:center; gap:14px;
-    padding:8px 12px; padding-top:calc(8px + env(safe-area-inset-top));
-    font-weight:700; font-variant-numeric:tabular-nums;
-    background:linear-gradient(var(--marino),transparent);
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
     pointer-events:none;
   }
-  #hud b { font-weight:700; letter-spacing:.16em; }
+  .ficha {
+    display:flex; align-items:baseline; gap:7px;
+    padding:6px 12px; border-radius:13px;
+    background:rgba(19,41,94,.82); border:1px solid var(--borde);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    font-variant-numeric:tabular-nums;
+  }
+  .ficha span { font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--apagado); }
+  .ficha b { font-size:14px; font-weight:800; color:var(--claro); }
   #poder { margin-left:auto; opacity:0; transition:opacity .2s; }
   #poder.visible { opacity:1; }
+  #poder b { font-size:12px; letter-spacing:.06em; }
 
   /* Mando táctil: solo aparece si el aparato tiene pantalla táctil */
   #mando { display:none; }
@@ -97,6 +104,7 @@
     display:grid; gap:9px; font-size:13px;
   }
   .controles div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .controles em { display:flex; gap:6px; font-style:normal; }
   .controles span { color:var(--apagado); }
   .controles kbd {
     font:inherit; font-size:12px; font-weight:700;
@@ -113,10 +121,10 @@
 <body>
 
 <div id="hud">
-  <span><b>VIDA</b> <span id="vida">♥♥♥</span></span>
-  <span><b>COHETES</b> <span id="municion">5</span></span>
-  <span><b>ENEMIGOS</b> <span id="enemigos">5</span></span>
-  <span id="poder"></span>
+  <div class="ficha"><span>VIDA</span><b id="vida">♥♥♥</b></div>
+  <div class="ficha"><span>COHETES</span><b id="municion">5/5</b></div>
+  <div class="ficha"><span>ENEMIGOS</span><b id="enemigos">15</b></div>
+  <div class="ficha" id="poder"><b></b></div>
 </div>
 
 <canvas id="lienzo"></canvas>
@@ -138,8 +146,7 @@
     <p id="capa-texto"></p>
     <button id="capa-boton">Jugar</button>
     <div class="controles">
-      <div><span>Moverte</span><kbd>↑ ↓ ← →</kbd></div>
-      <div><span>o también</span><kbd>W A S D</kbd></div>
+      <div><span>Moverte</span><em><kbd>↑ ↓ ← →</kbd><kbd>W A S D</kbd></em></div>
       <div><span>Disparar</span><kbd>O</kbd></div>
       <div><span>Menú</span><kbd>Espacio</kbd></div>
     </div>
@@ -163,108 +170,9 @@ const BITS = "AYABgAGAYYatte23rbXtt6vV69er1evXrDXv92AGAAABgAGAAYBhhu23rbXtt62169
 /* SPRITES-FIN */
 
 /* MAPA-INICIO */
-// Generado por convertir-mapa.mjs desde mapaTanques.png — no editar a mano.
-const MAPA_CODIGOS = {"suelo":".","borde":"#","lago":"~","montana":"^","piedras":"p","troncos":"t","barrera_metal":"b","roca":"r"};
-const MAPA_FILAS = [
-  "################################################",
-  "################################################",
-  "##...........tttttt.......t...................##",
-  "##...........tttttt......ttttttt..............##",
-  "##...............tt.....tttttttt..............##",
-  "##......................tttttttt..............##",
-  "##......................tttttttt..............##",
-  "##......................ttttttt...............##",
-  "##.......b...............tttt.................##",
-  "##.......b..........................b.........##",
-  "##................................b.bbb.......##",
-  "##...............................bbbbbb.......##",
-  "##...............rrrr............bbbbbb.......##",
-  "##...............rrrrr...........bbbbb........##",
-  "##..............rrrrrr........................##",
-  "##....^.........rrrrrr.....^..............rrrr##",
-  "##...^^^.........rrrrr....^^^............rrrrr##",
-  "##..^^^^^........rrrr....^^^^^...........rrrrr##",
-  "##...^^^................^^^^^^^..........rrrrr##",
-  "##....^................^^^^^^^^^.........rrrrr##",
-  "##....................^^^^^^^^^^^..........rr.##",
-  "##.....................^^^^^^^^^...............#",
-  "##......................^^^^^^^......t.........#",
-  "##.......................^^^^^......ttt........#",
-  "##.b....~.................^^^.....tttt.......r##",
-  "##.bb..~~~~~~~~......r.....^.....ttttt.......r##",
-  "##bbb..~~~~~~~~~.....rrrrrrr.....t..........rrr#",
-  "##....~~~~~~~~~~~....rrrrrrr.......^........rrr#",
-  "##...~~~~~~~~~~~~.....rrrrrr......^^^........rr#",
-  "##..~~~~~~~~~~~~~~~....rrrr......^^^^^.......rr#",
-  "##..~~~~~~~~~~~~~~~~....rr......^^^^^^^.......##",
-  "##.~~~~~~~~~~~~~~~~~.....r.....^^^^^^^^^......##",
-  "##..~~~~~~~~~~~~~~~~............^^^^^^^.......##",
-  "##..~~~~~~~~~~~~~~~~.............^^^^^........##",
-  "##..~~~~~~~~~~~~~~~~..............^^^.........##",
-  "##...~~~~~~~~~~~~~~~...............^..........##",
-  "##...~~~~~~~~~~~~~~~..........................##",
-  "##....~~~~~~~~~~~~~...........................##",
-  "##.....~~~~~~~~~~~~.......t..................b.#",
-  "##.....~~~~~~~~~~~........tt................bb##",
-  "##......~~~~~~~~~~..........................bbb#",
-  "##........~~~~~~~~..........................bbb#",
-  "##..........................................bb##",
-  "##..........................................bb##",
-  "##.............................................#",
-  "##............................................##",
-  "###...........................................##",
-  "################################################"
-];
-const MAPA_ROJAS = [
-  "111111111111111111111111111111111111111111111111",
-  "111111111111111111111111111111111111111111111111",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000011",
-  "110000000000000000000000000000000000000000000001",
-  "110000000000000000000000000000000000000000000011",
-  "111000000000000000000000000000000000000000000011",
-  "111111111111111111111111111111111111111111111111"
-];
+// Vacío: cada partida genera su propio mapa.
+// Para volver al mapa dibujado a mano:
+//   node games/tanques/convertir-mapa.mjs games/tanques/mapaTanques.png 48
 /* MAPA-FIN */
 
 const MARINO = "#0B1A4A";
@@ -467,10 +375,89 @@ function cargarMapa() {
     }
   }
 
-  /* Los bordes de lago y montaña solo se pueden elegir con el mapa ya puesto. */
-  for (let y = 0; y < alto; y++) {
-    for (let x = 0; x < ancho; x++) {
-      const i = y * ancho + x;
+  pintarBordes();
+}
+
+const MARCO = 2;             // grosor del marco rojo, en casillas
+
+/* Hace crecer una mancha irregular desde un punto, como las que dibujaste a
+   mano: se van añadiendo casillas vecinas al azar hasta llegar al tamaño. */
+function mancha(cx, cy, casillas) {
+  if (!enMapa(cx, cy) || tipoEn(cx, cy) !== "suelo") return [];
+  const dentro = [[cx, cy]];
+  const vistas = new Set([cy * mundo.ancho + cx]);
+  let intentos = 0;
+
+  while (dentro.length < casillas && intentos++ < casillas * 30) {
+    const [bx, by] = dentro[entero(dentro.length)];
+    const d = Object.values(DIRS)[entero(4)];
+    const x = bx + d.dx, y = by + d.dy;
+    const i = y * mundo.ancho + x;
+    if (vistas.has(i)) continue;
+    /* el marco no se toca, y las manchas no se pegan entre ellas */
+    if (x <= MARCO || y <= MARCO || x >= mundo.ancho - MARCO - 1 || y >= mundo.alto - MARCO - 1) continue;
+    if (tipoEn(x, y) !== "suelo") continue;
+    vistas.add(i);
+    dentro.push([x, y]);
+  }
+  return dentro;
+}
+
+/* Las montañas no son manchas: son rombos, que se leen mucho mejor. */
+function rombo(cx, cy, radio) {
+  const dentro = [];
+  for (let dy = -radio; dy <= radio; dy++) {
+    for (let dx = -radio; dx <= radio; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) > radio) continue;
+      const x = cx + dx, y = cy + dy;
+      if (x <= MARCO || y <= MARCO || x >= mundo.ancho - MARCO - 1 || y >= mundo.alto - MARCO - 1) continue;
+      if (tipoEn(x, y) !== "suelo") continue;
+      dentro.push([x, y]);
+    }
+  }
+  return dentro;
+}
+
+/* ¿Queda al menos una casilla de suelo entre esta mancha y cualquier otra?
+   En el dibujo original las regiones nunca se tocan, y así se leen sueltas. */
+function separada(celdas) {
+  const propias = new Set(celdas.map(([x, y]) => y * mundo.ancho + x));
+  for (const [x, y] of celdas) {
+    for (const d of Object.values(DIRS)) {
+      const nx = x + d.dx, ny = y + d.dy;
+      if (propias.has(ny * mundo.ancho + nx)) continue;
+      const t = tipoEn(nx, ny);
+      if (t !== "suelo" && t !== "borde") return false;
+    }
+  }
+  return true;
+}
+
+/* Reparte unas cuantas piezas de un terreno por el mapa, sin pisarse. */
+function sembrar(tipo, cuantas, minimo, maximo, comoRombo) {
+  let puestas = 0;
+  for (let intento = 0; intento < cuantas * 40 && puestas < cuantas; intento++) {
+    const x = MARCO + 2 + entero(mundo.ancho - 2 * MARCO - 4);
+    const y = MARCO + 2 + entero(mundo.alto - 2 * MARCO - 4);
+    const tamano = minimo + entero(maximo - minimo + 1);
+    const celdas = comoRombo ? rombo(x, y, tamano) : mancha(x, y, tamano);
+    /* Un rombo a medias se ve roto, así que o cabe entero o se busca otro
+       sitio. Las manchas sí valen aunque salgan algo más pequeñas. */
+    const falta = comoRombo
+      ? celdas.length < 2 * tamano * tamano + 2 * tamano + 1
+      : celdas.length < Math.max(3, tamano * 0.5);
+    if (falta || !separada(celdas)) continue;
+    for (const [cx, cy] of celdas) ponerCasilla(cx, cy, tipo);
+    puestas++;
+  }
+  return puestas;
+}
+
+/* Elige las piezas de lago y montaña ya con todo el mapa puesto. */
+function pintarBordes() {
+  for (let y = 0; y < mundo.alto; y++) {
+    for (let x = 0; x < mundo.ancho; x++) {
+      const i = y * mundo.ancho + x;
       if (mundo.tipo[i] === "lago") mundo.sprite[i] = spriteLago(x, y);
       else if (mundo.tipo[i] === "montana") {
         const [nombre, revés] = spriteMontana(x, y);
@@ -481,6 +468,9 @@ function cargarMapa() {
   }
 }
 
+/* Un mapa nuevo cada partida, con el mismo aire que el dibujado a mano:
+   un marco rojo, un par de lagos, montañas en rombo y los materiales
+   siempre en grupos, nunca sueltos de uno en uno. */
 function generarMapa(ancho, alto) {
   mundo.ancho = ancho; mundo.alto = alto;
   const n = ancho * alto;
@@ -490,32 +480,19 @@ function generarMapa(ancho, alto) {
 
   for (let y = 0; y < alto; y++) {
     for (let x = 0; x < ancho; x++) {
-      const orilla = x === 0 || y === 0 || x === ancho - 1 || y === alto - 1;
-      ponerCasilla(x, y, orilla ? "borde" : "suelo", null, orilla);
+      const marco = x < MARCO || y < MARCO || x >= ancho - MARCO || y >= alto - MARCO;
+      ponerCasilla(x, y, marco ? "borde" : "suelo", null, marco);
     }
   }
 
-  for (let i = 0; i < 3; i++) {
-    const w = 3 + entero(4), h = 3 + entero(3);
-    for (let intento = 0; intento < 30; intento++) {
-      const x = 2 + entero(ancho - w - 4), y = 2 + entero(alto - h - 4);
-      if (libre(x, y, w, h)) { dibujarLago(x, y, w, h); break; }
-    }
-  }
+  sembrar("lago", 1 + entero(2), 45, 110, false);
+  sembrar("montana", 2 + entero(3), 3, 5, true);
+  sembrar("troncos", 3 + entero(3), 10, 26, false);
+  sembrar("barrera_metal", 3 + entero(3), 8, 20, false);
+  sembrar("roca", 3 + entero(3), 8, 22, false);
+  sembrar("piedras", 2 + entero(3), 6, 16, false);
 
-  for (let i = 0; i < 3; i++) {
-    const a = 3 + entero(2);
-    for (let intento = 0; intento < 30; intento++) {
-      const cx = 2 + a + entero(ancho - 2 * a - 4), y = 2 + entero(alto - a - 4);
-      if (libre(cx - a, y, a * 2 + 1, a)) { dibujarMontana(cx, y, a); break; }
-    }
-  }
-
-  const sueltos = ["piedras", "troncos", "barrera_metal", "roca"];
-  for (let i = 0; i < Math.floor(n * 0.08); i++) {
-    const x = 1 + entero(ancho - 2), y = 1 + entero(alto - 2);
-    if (tipoEn(x, y) === "suelo") ponerCasilla(x, y, sueltos[entero(sueltos.length)]);
-  }
+  pintarBordes();
 }
 
 /* Casillas a las que se puede llegar caminando desde (x,y). Sirve para no
@@ -551,6 +528,7 @@ const RECARGA = 2;           // un cohete cada 2 segundos
 const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
 const ALCANCE = 20;          // casillas que vuela un cohete
 const ENEMIGOS = 15;         // cuántos tanques enemigos salen
+const TAMANO_MAPA = 48;      // lado del mapa, en casillas
 const VISTA_ENEMIGO = 9;     // radio en el que un enemigo dispara a otro tanque
 const PERSECUCION = 26;      // radio en el que se pone en marcha hacia él
 const GRACIA = 1;            // segundos invulnerable tras recibir un impacto
@@ -608,7 +586,7 @@ function disparar(t) {
   t.enfriamiento = t.jugador ? 0.22 : 1.5;
 
   const d = DIRS[t.dir];
-  juego.cohetes.push({
+  const c = {
     x: t.x + d.dx, y: t.y + d.dy,
     px: t.x + d.dx, py: t.y + d.dy,
     dir: t.dir,
@@ -617,8 +595,22 @@ function disparar(t) {
     dano: (t.superCohete ? 2 : 1) * (t.danoDoble > 0 ? 2 : 1),
     recorrido: 0,
     cuadro: 0
-  });
+  };
   t.superCohete = false;
+
+  /* Si en la casilla de enfrente ya hay algo, el cohete revienta ahí mismo:
+     antes nacía dentro y solo se comprobaba al avanzar, así que atravesaba
+     a un tanque pegado sin tocarlo. */
+  const pegado = juego.tanques.some(
+    (o) => o.vivo && o !== t &&
+           Math.abs(o.px - c.x) < 0.8 && Math.abs(o.py - c.y) < 0.8);
+
+  if (pegado || !enMapa(c.x, c.y) || !pasaBala(c.x, c.y)) {
+    impactar(c);
+    return true;
+  }
+
+  juego.cohetes.push(c);
   return true;
 }
 
@@ -1003,7 +995,7 @@ function pintarMarcador() {
   if (j.danoDoble > 0) activos.push("DAÑO ×2");
   if (j.rapido > 0) activos.push("VELOCIDAD ×2");
   if (j.municionDoble > 0) activos.push("COHETES ×2");
-  elPoder.textContent = activos.join(" · ");
+  elPoder.firstElementChild.textContent = activos.join(" · ");
   elPoder.classList.toggle("visible", activos.length > 0);
 }
 
@@ -1052,7 +1044,10 @@ capaBoton.addEventListener("click", botonCapa);
 
 function empezar(numeroEnemigos) {
   semilla = (Date.now() & 0xffff) + 1;
-  cargarMapa();
+  /* Si convertir-mapa.mjs dejó un mapa dibujado dentro, se usa ese;
+     si no, se inventa uno nuevo para cada partida. */
+  if (typeof MAPA_FILAS !== "undefined") cargarMapa();
+  else generarMapa(TAMANO_MAPA, TAMANO_MAPA);
 
   juego.tanques = [];
   juego.cohetes = [];
@@ -1061,10 +1056,20 @@ function empezar(numeroEnemigos) {
   juego.siguientePoder = 6;
   juego.tiempo = 0;
 
-  /* el jugador arranca en el centro, en una casilla despejada */
+  /* El jugador arranca lo más cerca posible del centro, pero en un hueco que
+     ya exista: abrirlo a la fuerza mordía la montaña o el lago que hubiera
+     ahí y dejaba las piezas del dibujo a medias. */
   let jx = mundo.ancho >> 1, jy = mundo.alto >> 1;
-  for (let r = 0; r < 20 && !pasaTanque(jx, jy); r++) { jx++; if (jx >= mundo.ancho - 1) { jx = 1; jy++; } }
-  ponerCasilla(jx, jy, "suelo");
+  busqueda:
+  for (let r = 0; r < mundo.ancho; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // solo el anillo
+        const x = (mundo.ancho >> 1) + dx, y = (mundo.alto >> 1) + dy;
+        if (enMapa(x, y) && pasaTanque(x, y)) { jx = x; jy = y; break busqueda; }
+      }
+    }
+  }
   juego.jugador = nuevoTanque(jx, jy, true);
   juego.tanques.push(juego.jugador);
 
