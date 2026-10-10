@@ -20,12 +20,15 @@
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
   body {
-    margin:0; background:var(--marino); color:var(--claro);
+    margin:0; background:var(--claro); color:var(--claro);
     font:15px/1.4 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
-    display:flex; align-items:center; justify-content:center;
     overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
   }
-  canvas { display:block; image-rendering:pixelated; touch-action:none; cursor:pointer; }
+  /* El césped llena la pantalla, así que el lienzo va de borde a borde. */
+  canvas {
+    position:fixed; inset:0; display:block;
+    image-rendering:pixelated; touch-action:none; cursor:pointer;
+  }
 
   #hud {
     position:fixed; top:0; left:0; right:0; z-index:3;
@@ -35,11 +38,13 @@
   .ficha {
     display:flex; align-items:baseline; gap:7px;
     padding:6px 12px; border-radius:13px;
-    background:rgba(19,41,94,.82); border:1px solid var(--borde);
+    background:rgba(19,41,94,.94); border:1px solid var(--borde);
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     font-variant-numeric:tabular-nums;
   }
-  .ficha span { font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--apagado); }
+  /* Sobre césped claro la ficha se aclara, así que la etiqueta sube de tono:
+     con #6E96C4 quedaba en 3.0:1 y hace falta 4.5:1. Ahora da 5.7:1. */
+  .ficha span { font-size:10px; font-weight:800; letter-spacing:.14em; color:#8FB4D8; }
   .ficha b { font-size:14px; font-weight:800; color:var(--claro); }
   #aviso { margin-left:auto; }
   #sonido { pointer-events:auto; cursor:pointer; font:inherit; }
@@ -194,11 +199,38 @@ TILES.forEach((n, i) => { indiceTile[n] = i; });
 const ANCHO = MAPA[0].length * LADO_TILE;
 const ALTO = MAPA.length * LADO_TILE;
 
+/* El estanque: todo lo que no es césped. Es lo que se centra en pantalla y
+   lo que manda a la hora de agrandar. */
+const LAGO = (function () {
+  let x0 = MAPA[0].length, x1 = -1, y0 = MAPA.length, y1 = -1;
+  for (let y = 0; y < MAPA.length; y++) {
+    for (let x = 0; x < MAPA[y].length; x++) {
+      if ((CODIGOS[MAPA[y][x]] || "agua") === "pasto") continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  return { x0: x0, y0: y0, ancho: x1 - x0 + 1, alto: y1 - y0 + 1 };
+})();
+
 /* Las cuatro ranas, con su casilla de toque. */
 const RANAS = PUESTOS.map((p) => ({
   especie: p.e, x: p.x, y: p.y,
   croando: 0            // segundos que le quedan con los colores cambiados
 }));
+
+/* Hasta dónde llegan las ranas. Por mucho que se agrande el estanque, las
+   cuatro tienen que seguir viéndose: si no, el juego es injugable. */
+const CAJA_RANAS = (function () {
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const r of RANAS) {
+    x0 = Math.min(x0, r.x); x1 = Math.max(x1, r.x + LADO_RANA);
+    y0 = Math.min(y0, r.y); y1 = Math.max(y1, r.y + LADO_RANA);
+  }
+  return { ancho: x1 - x0, alto: y1 - y0 };
+})();
 
 /* ───────────────── La secuencia ───────────────── */
 
@@ -340,24 +372,51 @@ function coronar() {
 
 const lienzo = document.getElementById("lienzo");
 const ctx = lienzo.getContext("2d", { alpha: false });
-let escala = 2;
+let escala = 2, desplazX = 0, desplazY = 0;
 
 function ajustar() {
-  const margenArriba = 70;
-  escala = Math.max(1, Math.min(
-    Math.floor(window.innerWidth / ANCHO),
-    Math.floor((window.innerHeight - margenArriba) / ALTO)));
-  lienzo.width = ANCHO * escala;
-  lienzo.height = ALTO * escala;
+  const w = window.innerWidth, h = window.innerHeight;
+  lienzo.width = w;
+  lienzo.height = h;
   ctx.imageSmoothingEnabled = false;
+
+  const lagoAncho = LAGO.ancho * LADO_TILE, lagoAlto = LAGO.alto * LADO_TILE;
+
+  /* En pantalla chica el estanque se desborda hasta tocar los bordes; en
+     pantalla grande cabe entero y queda césped alrededor. Lo que decide es
+     el lado MÁS CORTO: un celular de lado mide 800 de ancho y seguiría
+     siendo un celular. */
+  const esChica = Math.min(w, h) < 520;
+  let nueva = esChica
+    ? Math.ceil(Math.max(w / lagoAncho, h / lagoAlto))
+    : Math.floor(Math.min(w * 0.92 / lagoAncho, (h - 80) * 0.92 / lagoAlto));
+
+  /* pero nunca tanto como para dejar una rana fuera de la pantalla */
+  const tope = Math.floor(Math.min(w / CAJA_RANAS.ancho, h / CAJA_RANAS.alto));
+  escala = Math.max(1, Math.min(nueva, tope));
+
+  const paso = LADO_TILE * escala;
+  desplazX = Math.round(w / 2 - (LAGO.x0 + LAGO.ancho / 2) * paso);
+  desplazY = Math.round(h / 2 - (LAGO.y0 + LAGO.alto / 2) * paso);
 }
 window.addEventListener("resize", ajustar);
 
 let reloj = 0;
 
 function dibujar() {
-  ctx.fillStyle = MARINO;
-  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+  const paso = LADO_TILE * escala;
+
+  /* Césped de borde a borde, cuadrado con el del tablero para que las matas
+     no se noten en la costura. */
+  const nPasto = indiceTile["pasto"];
+  const inicioX = desplazX - Math.ceil(desplazX / paso) * paso;
+  const inicioY = desplazY - Math.ceil(desplazY / paso) * paso;
+  for (let y = inicioY; y < lienzo.height; y += paso) {
+    for (let x = inicioX; x < lienzo.width; x += paso) {
+      ctx.drawImage(ATLAS_TILES, nPasto * LADO_TILE, 0, LADO_TILE, LADO_TILE,
+                    x, y, paso, paso);
+    }
+  }
 
   /* el agua se mueve: las dos variantes de onda se van turnando */
   const onda = Math.floor(reloj / 0.7) & 1;
@@ -372,15 +431,14 @@ function dibujar() {
       const n = indiceTile[nombre];
       if (n === undefined) continue;
       ctx.drawImage(ATLAS_TILES, n * LADO_TILE, 0, LADO_TILE, LADO_TILE,
-                    x * LADO_TILE * escala, y * LADO_TILE * escala,
-                    LADO_TILE * escala, LADO_TILE * escala);
+                    desplazX + x * paso, desplazY + y * paso, paso, paso);
     }
   }
 
   for (const r of RANAS) {
     const hoja = r.croando > 0 ? ATLAS_RANAS_CROANDO : ATLAS_RANAS;
     ctx.drawImage(hoja, r.especie * LADO_RANA, 0, LADO_RANA, LADO_RANA,
-                  r.x * escala, r.y * escala,
+                  desplazX + r.x * escala, desplazY + r.y * escala,
                   LADO_RANA * escala, LADO_RANA * escala);
   }
 }
@@ -431,7 +489,8 @@ capaBoton.addEventListener("click", empezar);
 /* Qué rana hay bajo un punto del lienzo. */
 function ranaEn(cx, cy) {
   const caja = lienzo.getBoundingClientRect();
-  const x = (cx - caja.left) / escala, y = (cy - caja.top) / escala;
+  const x = (cx - caja.left - desplazX) / escala;
+  const y = (cy - caja.top - desplazY) / escala;
   for (let i = RANAS.length - 1; i >= 0; i--) {
     const r = RANAS[i];
     if (x >= r.x && y >= r.y && x < r.x + LADO_RANA && y < r.y + LADO_RANA) return i;

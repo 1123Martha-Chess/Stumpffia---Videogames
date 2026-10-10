@@ -35,7 +35,7 @@ window.STUMPFFIA = {
       nombre: "Memoria del Charco",
       emoji: "🐸",
       desc: "Las ranas croan por turnos y cambian de color. Repite el orden, ronda tras ronda.",
-      peso: "7 KB",
+      peso: "8 KB",
       pronto: false
     },
     {
