@@ -15,6 +15,14 @@ window.STUMPFFIA = {
 
   juegos: [
     {
+      id: "pizzero",
+      nombre: "Pizzero",
+      emoji: "🍕",
+      desc: "Reparte pizzas por una ciudad que crece contigo. Primero a pie, luego en moto, luego en auto.",
+      peso: "11 KB",
+      pronto: false
+    },
+    {
       id: "tanques",
       nombre: "Tanques",
       emoji: "💥",

@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Pizzero — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/fuente.css">
+<style>
+  :root {
+    --marino:#0B1A4A; --tarjeta:#13295E; --claro:#7EC8F2;
+    --apagado:#8FB4D8; --borde:rgba(126,200,242,.18);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    margin:0; background:var(--marino); color:var(--claro);
+    font:15px/1.4 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
+  }
+  canvas { position:fixed; inset:0; display:block; image-rendering:pixelated; touch-action:none; }
+
+  #hud {
+    position:fixed; top:0; left:0; right:0; z-index:3;
+    display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
+    pointer-events:none;
+  }
+  .ficha {
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    padding:5px 11px; border-radius:13px;
+    background:rgba(19,41,94,.94); border:1px solid var(--borde);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    font-variant-numeric:tabular-nums;
+  }
+  .ficha span { font-size:9px; font-weight:800; letter-spacing:.14em; color:var(--apagado); }
+  .ficha b { font-size:15px; font-weight:800; color:var(--claro); }
+  .ficha.urgente { border-color:var(--claro); animation:latir .7s infinite; }
+  @keyframes latir { 50% { background:var(--claro); } }
+  .ficha.urgente b, .ficha.urgente span { mix-blend-mode:difference; }
+  #pizzas { display:flex; gap:8px; margin-left:auto; }
+  @media (prefers-reduced-motion: reduce) { .ficha.urgente { animation:none; } }
+
+  #mando { display:none; }
+  body.tactil #mando {
+    display:flex; position:fixed; inset:auto 0 0 0; z-index:4;
+    padding:0 18px calc(18px + env(safe-area-inset-bottom));
+    justify-content:center;
+  }
+  .cruz { display:grid; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(3,54px); }
+  .cruz button { grid-area:var(--pos); }
+  #mando button {
+    border:2px solid var(--claro); background:rgba(11,26,74,.55); color:var(--claro);
+    border-radius:12px; font:inherit; font-size:20px; font-weight:700; cursor:pointer;
+  }
+  #mando button:active { background:var(--claro); color:var(--marino); }
+
+  #capa {
+    position:fixed; inset:0; z-index:10;
+    display:none; align-items:center; justify-content:center; padding:20px;
+    background:rgba(11,26,74,.72);
+    backdrop-filter:saturate(160%) blur(18px); -webkit-backdrop-filter:saturate(160%) blur(18px);
+  }
+  #capa.visible { display:flex; }
+  .tarjeta {
+    width:min(420px,100%); padding:34px 30px 26px; text-align:center;
+    background:var(--tarjeta); border:1px solid var(--borde); border-radius:28px;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
+  }
+  .tarjeta-marca {
+    width:46px; height:46px; margin:0 auto 16px; background:var(--claro);
+    -webkit-mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+    mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+  }
+  .tarjeta h1 { margin:0 0 8px; font-size:clamp(28px,7.5vw,38px); font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:15px; line-height:1.5; }
+  .tarjeta button {
+    width:100%; min-height:50px; margin-top:22px;
+    border:none; border-radius:999px; cursor:pointer;
+    font:inherit; font-size:16px; font-weight:800;
+    background:var(--claro); color:var(--marino);
+    transition:transform .12s ease, opacity .15s ease;
+  }
+  .tarjeta button:hover { opacity:.88; }
+  .tarjeta button:active { transform:scale(.98); }
+  .marcas { margin:22px 0 0; padding:14px 2px 2px; border-top:1px solid var(--borde); display:grid; gap:9px; font-size:13px; }
+  .marcas div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .marcas span { color:var(--apagado); }
+  .marcas b, .marcas kbd {
+    font:inherit; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .marcas kbd { padding:3px 9px; border-radius:7px; background:rgba(126,200,242,.12); border:1px solid var(--borde); color:var(--claro); }
+  .tarjeta a { display:inline-block; margin-top:18px; color:var(--apagado); font-size:13px; font-weight:700; text-decoration:none; }
+  .tarjeta a:hover { color:var(--claro); }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="ficha"><span>ENTREGAS</span><b id="entregas">0</b></div>
+  <div class="ficha" id="ficha-despido"><span>SIN ENTREGAR</span><b id="despido">5:00</b></div>
+  <div class="ficha"><span>REPARTO</span><b id="vehiculo">A pie</b></div>
+  <div id="pizzas"></div>
+</div>
+
+<canvas id="lienzo"></canvas>
+
+<div id="mando" aria-hidden="true">
+  <div class="cruz">
+    <button data-dir="arriba"    style="--pos:1/2">▲</button>
+    <button data-dir="izquierda" style="--pos:2/1">◀</button>
+    <button data-dir="derecha"   style="--pos:2/3">▶</button>
+    <button data-dir="abajo"     style="--pos:3/2">▼</button>
+  </div>
+</div>
+
+<div id="capa">
+  <div class="tarjeta">
+    <div class="tarjeta-marca" aria-hidden="true"></div>
+    <h1 id="capa-titulo">Pizzero</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Empezar el turno</button>
+    <div class="marcas" id="capa-marcas"></div>
+    <a href="/">Volver a Stumpffia</a>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   PIZZERO — Stumpffia
+   Recoges pizzas en la pizzería y las llevas a su casa antes de que se
+   enfríen. Un solo archivo, sin librerías, sin peticiones de red.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* SPRITES-INICIO */
+// Generado por empacar.mjs desde sprites/*.md — no editar a mano.
+const NOMBRES = ["sin_pizza_abajo_quieto","sin_pizza_abajo_paso_1","sin_pizza_abajo_paso_2","sin_pizza_arriba_quieto","sin_pizza_arriba_paso_1","sin_pizza_arriba_paso_2","sin_pizza_izquierda_quieto","sin_pizza_izquierda_paso_1","sin_pizza_izquierda_paso_2","sin_pizza_derecha_quieto","sin_pizza_derecha_paso_1","sin_pizza_derecha_paso_2","con_pizza_abajo_quieto","con_pizza_abajo_paso_1","con_pizza_abajo_paso_2","con_pizza_arriba_quieto","con_pizza_arriba_paso_1","con_pizza_arriba_paso_2","con_pizza_izquierda_quieto","con_pizza_izquierda_paso_1","con_pizza_izquierda_paso_2","con_pizza_derecha_quieto","con_pizza_derecha_paso_1","con_pizza_derecha_paso_2","moto_abajo_con_pizzero_quieta","moto_abajo_con_pizzero_mov_1","moto_abajo_con_pizzero_mov_2","moto_arriba_con_pizzero_quieta","moto_arriba_con_pizzero_mov_1","moto_arriba_con_pizzero_mov_2","moto_izquierda_con_pizzero_quieta","moto_izquierda_con_pizzero_mov_1","moto_izquierda_con_pizzero_mov_2","moto_derecha_con_pizzero_quieta","moto_derecha_con_pizzero_mov_1","moto_derecha_con_pizzero_mov_2","auto_abajo_con_pizzero_quieto","auto_abajo_con_pizzero_mov_1","auto_abajo_con_pizzero_mov_2","auto_arriba_con_pizzero_quieto","auto_arriba_con_pizzero_mov_1","auto_arriba_con_pizzero_mov_2","auto_izquierda_con_pizzero_quieto","auto_izquierda_con_pizzero_mov_1","auto_izquierda_con_pizzero_mov_2","auto_derecha_con_pizzero_quieto","auto_derecha_con_pizzero_mov_1","auto_derecha_con_pizzero_mov_2"];
+const BITS = "B+AP8A5wH/gAAA/wC9AP8APAP/xv9mw2b/YP8AwwHDgH4A/wDnAf+AAAD/AL0A/wA8A//G/2bDZv8A/wDDAcAAfgD/AOcB/4AAAP8AvQD/ADwD/8b/ZsNg/2D/AMMAA4B+AP8A/wD/AAAA/wD/AP8APAP/xv9m52b/YP8AwwHDgH4A/wD/AP8AAAD/AP8A/wA8A//G/2bnZv8A/wDDAcAAfgD/AP8A/wAAAP8A/wD/ADwD/8b/Zudg/2D/AMMAA4A/AH+AX4f/gAAA/wC/Af8APgB/AH0AfQB5AH8ANgB2AD8Af4Bfh/+AAAD/AL8B/wA+AH8AfQD/AP8AfwBjAMGAPwB/gF+H/4AAAP8AvwH/AD4AfwB9AH+Af4B/AD4AfgD8Af4B+gH/4AAA/wD9AP+AfAD+AL4AvgCeAP4AbABuAPwB/gH6Af/gAAD/AP0A/4B8AP4AvgD/AP8A/gDGAYMA/AH+AfoB/+AAAP8A/QD/gHwA/gC+Af4B/gD+AHwAfgB+AP8A5wH/gAAA/wC9AP8APAf/5AAkACf/4P8AwwHDgH4A/wDnAf+AAAD/AL0A/wA8B//kACQAJ//g/wDDAcAAfgD/AOcB/4AAAP8AvQD/ADwH/+QAJAAn/+D/AMMAA4B+AP8A/wD/AAAA/wD/AP8APAP/zv9+/3b/YP8AwwHDgH4A/wD/AP8AAAD/AP8A/wA8A//O/37/dv9g/wDDAcAAfgD/AP8A/wAAAP8A/wD/ADwD/87/fv92/2D/AMMAA4A/AH+AX4f/gAAA/wC/Af8APg+/D78D/wB/AH8ANgB2AD8Af4Bfh/+AAAD/AL8B/wA+D78PvwP/AH8AfwBjAMGAPwB/gF+H/4AAAP8AvwH/AD4Pvw+/A/8AfwB/AD4AfgD8Af4B+gH/4AAA/wD9AP+AfAD98P3w/8D+AP4AbABuAPwB/gH6Af/gAAD/AP0A/4B8AP3w/fD/wP4A/gDGAYMA/AH+AfoB/+AAAP8A/QD/gHwA/fD98P/A/gD+AHwAfgAYAP8ApQD/AAAAfgC9AX6BfoI8RgBj/8AYABgAGAAAABAA/wClAP8AAAB+AL0JfpF+gjxGAGP/wBgIABAYAAAACAD/AKUA/wgAEH4AvQF+gX6CPE4Ac//AAAAYAAAAAAAAABgAGAAYA//GAGI8QX6BfoC9AH4AAAD/AKUA/wAYAAAAGAgAEBgD/8YAYjxBfol+kL0AfgAAAP8ApQD/AAgAAAAAABgAAAP/zgByPEF+gX6AvQB+CAAQ/wClAP8AEAAAAEAA4ACYAITgmqC+5763vrC+4JqghOCYAOAAQAAAAggAQADgAJgAhOCaoL7lvrW+oL7gmqCE4JgA4ABAAggAQQBAAOAAmACE4JqgvuK+or6wvuCaoITgmADgAEAAQQAAAAIABwAZByEFWQd9DX3tfed9BVkHIQAZAAcAAgAAABBAAgAHABkHIQVZB30Ffa19p30FWQchABkABwACABBAggACAAcAGQchBVkHfQ19RX1HfQVZByEAGQAHAAIAggAAAf+D/8///gBz/8O9w4HD/8IPQgdP////837D/8H/gQCB/4P/w//OAHP/w73DgcP/wg9CB0P/z//zfsP/wf+AgQH/g//P//IAQ//DvcOBw//CD0IHT//z/8N+w//B/4H/g//Dfs/////y4ELwQ//DgcO9w//OAH//8//B/4AAAf+D/8N+z//z/8LgQvBD/8OBw73D/84Ac//D/8H/gQCB/4P/w37D/8//8uBC8EP/w4HDvcP/wgBP//P/wf+AgQGBgYGH/8+e7Z7vku+W75bvtu/27/Lt/u+e5//BgYGBgQEBAQf/z579nu+S75bvlu+27/bv8u3+7573/8EBAQEAgICAh//Pnu2e/5Lvlu+W77bv9u/y7f7/nuf/wICAgIGBgYGD/+d593+3T/dv9233afdp90n3ebd58//hgYGBgICAgIP/73n3f7dP92/3bfdp92n3Sfd5v3nz/+CAgICBAQEBA//nef9/t0/3b/dt92n3afdJ/3m3efP/4QEBAQ";
+/* SPRITES-FIN */
+
+const MARINO = "#0B1A4A";
+const CLARO  = "#7EC8F2";
+const TAM = 16;
+
+/* ───────────────── Reglas ───────────────── */
+
+const SEGUNDOS_PIZZA  = 225;   // 3:45 desde que sale del mostrador
+const RESTA_POR_FASE  = 15;    // cada ascenso recorta el plazo
+const SEGUNDOS_DESPIDO = 300;  // 5 minutos sin entregar y a la calle
+const META_MOTO = 10;
+const META_AUTO = 36;
+
+const FASES = [
+  { nombre: "A pie",   capacidad: 1, paso: 0.26,  sprite: null,   escala: 1 },
+  { nombre: "Moto",    capacidad: 2, paso: 0.125, sprite: "moto", escala: 1 },
+  { nombre: "Auto",    capacidad: 4, paso: 0.095, sprite: "auto", escala: 2 }
+];
+
+const MARGEN_NEBLINA = 3;      // grosor del banco de niebla del borde
+
+/* ───────────────── Tiles de la ciudad ───────────────── */
+
+/* Dibujados aquí mismo para que puedas retocarlos a mano: 0 es azul marino
+   y 1 azul claro, igual que en tus .md. */
+const TILES = {
+  calle: [
+    "0000000000000000","0001000000000100","0000000000000000","0000000000010000",
+    "0000010000000000","0000000000000000","0000000001000000","0010000000000000",
+    "0000000000000000","0000000100000000","0001000000000000","0000000000000010",
+    "0000100000000000","0000000000000000","0000000000100000","0000000000000000"
+  ],
+  casa_a: [
+    "0011111111111100","0111111111111110","0111111111111110","0110011001100110",
+    "0110011001100110","0111111111111110","0111111111111110","0110011001100110",
+    "0110011001100110","0111111111111110","0111111111111110","0111111111111110",
+    "0111110000111110","0111110000111110","0111110000111110","0011110000111100"
+  ],
+  casa_b: [
+    "0011111111111100","0111111111111110","0111111111111110","0111001110011110",
+    "0111001110011110","0111111111111110","0111111111111110","0110001111000110",
+    "0110001111000110","0111111111111110","0111111111111110","0111111111111110",
+    "0111000011111110","0111000011111110","0111000011111110","0011000011111100"
+  ],
+  patio: [
+    "1111111111111111","1110111111101111","1111111111111111","1111111011111111",
+    "1101111111111101","1111111111111111","1111101111111111","1111111111011111",
+    "1011111111111111","1111111111111111","1111110111111111","1111111111111011",
+    "1101111111111111","1111111111111111","1111011111111111","1111111111111111"
+  ],
+  pizzeria: [
+    "0011111111111100","0111111111111110","1111111111111111","1100110011001100",
+    "0011001100110011","1111111111111111","1111110001111111","1111100000111111",
+    "1111000100011111","1110001000100111","1100010001000011","1111111111111111",
+    "1111110000111111","1111110000111111","1111110000111111","0111110000111110"
+  ],
+  neblina: [
+    "1100110011001100","1100110011001100","0011001100110011","0011001100110011",
+    "1100110011001100","1100110011001100","0011001100110011","0011001100110011",
+    "1100110011001100","1100110011001100","0011001100110011","0011001100110011",
+    "1100110011001100","1100110011001100","0011001100110011","0011001100110011"
+  ]
+};
+
+/* ───────────────── Atlas ───────────────── */
+
+const bits = (function () {
+  const bin = atob(BITS);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+})();
+
+const indice = {};
+NOMBRES.forEach((n, i) => { indice[n] = i; });
+
+/* Los sprites de personaje llevan fondo transparente: el 0 que se toca con
+   el borde es aire, el 0 encerrado por 1 son ojos y ventanas. */
+function recortarFondo(filas) {
+  const fuera = new Uint8Array(TAM * TAM);
+  const cola = [];
+  for (let i = 0; i < TAM; i++) {
+    for (const [x, y] of [[i, 0], [i, TAM-1], [0, i], [TAM-1, i]]) {
+      const p = y * TAM + x;
+      if (!fuera[p] && filas[y][x] === 0) { fuera[p] = 1; cola.push([x, y]); }
+    }
+  }
+  while (cola.length) {
+    const [x, y] = cola.pop();
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= TAM || ny >= TAM) continue;
+      const p = ny * TAM + nx;
+      if (fuera[p] || filas[ny][nx] !== 0) continue;
+      fuera[p] = 1; cola.push([nx, ny]);
+    }
+  }
+  return fuera;
+}
+
+function pintarEn(img, ancho, ox, filas, opciones) {
+  const cl = [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
+  const fuera = opciones.transparente ? recortarFondo(filas) : null;
+  for (let y = 0; y < TAM; y++) {
+    for (let x = 0; x < TAM; x++) {
+      const encendido = filas[y][x] === 1;
+      const o = (y * ancho + ox + x) * 4;
+      if (fuera && fuera[y * TAM + x]) { img.data[o + 3] = 0; continue; }
+      const claro = opciones.invertido ? !encendido : encendido;
+      const c = claro ? cl : ma;
+      img.data[o] = c[0]; img.data[o+1] = c[1]; img.data[o+2] = c[2]; img.data[o+3] = 255;
+    }
+  }
+}
+
+function lienzoDe(lista, opciones) {
+  const c = document.createElement("canvas");
+  c.width = TAM * lista.length; c.height = TAM;
+  const ctx2 = c.getContext("2d");
+  const img = ctx2.createImageData(c.width, TAM);
+  lista.forEach((filas, n) => pintarEn(img, c.width, n * TAM, filas, opciones));
+  ctx2.putImageData(img, 0, 0);
+  return c;
+}
+
+/* sprites de los .md (personajes y vehículos): con fondo transparente */
+const filasSprite = NOMBRES.map(function (_, n) {
+  const filas = [];
+  for (let y = 0; y < TAM; y++) {
+    const fila = [];
+    for (let x = 0; x < TAM; x++) {
+      const i = y * TAM + x;
+      fila.push((bits[n * 32 + (i >> 3)] >> (7 - (i & 7))) & 1);
+    }
+    filas.push(fila);
+  }
+  return filas;
+});
+const ATLAS_SPRITES = lienzoDe(filasSprite, { transparente: true });
+
+/* tiles de la ciudad: opacos */
+const NOMBRES_TILE = Object.keys(TILES);
+const filasTile = NOMBRES_TILE.map((n) => TILES[n].map((f) => [...f].map(Number)));
+const ATLAS_TILES = lienzoDe(filasTile, {});
+const ATLAS_TILES_MARCADO = lienzoDe(filasTile, { invertido: true });
+const indiceTile = {};
+NOMBRES_TILE.forEach((n, i) => { indiceTile[n] = i; });
+
+/* ───────────────── La ciudad ───────────────── */
+
+const ciudad = { lado: 0, tipo: null, cuadras: [], pizzeria: null };
+
+function enMapa(x, y) { return x >= 0 && y >= 0 && x < ciudad.lado && y < ciudad.lado; }
+function tipoEn(x, y) { return enMapa(x, y) ? ciudad.tipo[y * ciudad.lado + x] : "neblina"; }
+function pisable(x, y) { return tipoEn(x, y) === "calle"; }
+
+let semilla = 1;
+function azar() {
+  semilla = (semilla * 1103515245 + 12345) & 0x7fffffff;
+  return semilla / 0x7fffffff;
+}
+const entero = (n) => Math.floor(azar() * n);
+
+/* ¿cabe aquí una cuadra, con su calle alrededor? */
+const CALLE = 1;             // casillas libres que se exigen alrededor de cada cuadra
+
+function sitioLibre(x, y, w, h) {
+  for (let j = y - CALLE; j < y + h + CALLE; j++) {
+    for (let i = x - CALLE; i < x + w + CALLE; i++) {
+      if (i < MARGEN_NEBLINA || j < MARGEN_NEBLINA) return false;
+      if (i >= ciudad.lado - MARGEN_NEBLINA || j >= ciudad.lado - MARGEN_NEBLINA) return false;
+      if (ocupadoPorCuadra(i, j)) return false;
+    }
+  }
+  return true;
+}
+
+function ocupadoPorCuadra(x, y) {
+  for (const c of ciudad.cuadras) {
+    if (x >= c.x && y >= c.y && x < c.x + c.w && y < c.y + c.h) return true;
+  }
+  return false;
+}
+
+/* Las cuadras son de tamaños y posiciones distintos, como pediste: se
+   sortea el tamaño y se busca sitio donde quepa con calle alrededor. */
+function nuevaCuadra() {
+  for (let intento = 0; intento < 400; intento++) {
+    const w = 3 + entero(7), h = 3 + entero(5);
+    const x = MARGEN_NEBLINA + CALLE + entero(Math.max(1, ciudad.lado - w - (MARGEN_NEBLINA + CALLE) * 2));
+    const y = MARGEN_NEBLINA + CALLE + entero(Math.max(1, ciudad.lado - h - (MARGEN_NEBLINA + CALLE) * 2));
+    if (!sitioLibre(x, y, w, h)) continue;
+    ciudad.cuadras.push({ x: x, y: y, w: w, h: h });
+    return true;
+  }
+  return false;
+}
+
+/* Si no cabe una más, la ciudad crece por los cuatro lados a la vez: así
+   el centro sigue siendo el centro y nada se desplaza de golpe. */
+function agrandar(cuanto) {
+  ciudad.lado += cuanto * 2;
+  for (const c of ciudad.cuadras) { c.x += cuanto; c.y += cuanto; }
+  ciudad.pizzeria.x += cuanto; ciudad.pizzeria.y += cuanto;
+  jugador.x += cuanto; jugador.y += cuanto;
+  jugador.px += cuanto; jugador.py += cuanto;
+  for (const p of juego.pizzas) { p.casa.x += cuanto; p.casa.y += cuanto; }
+}
+
+function agregarCuadra() {
+  for (let vuelta = 0; vuelta < 20; vuelta++) {
+    if (nuevaCuadra()) { volcarCiudad(); return; }
+    agrandar(1);
+  }
+}
+
+/* Pasa la lista de cuadras a casillas. Las casas van al borde de cada
+   cuadra, mirando a la calle; dentro quedan los patios. */
+function volcarCiudad() {
+  const n = ciudad.lado * ciudad.lado;
+  ciudad.tipo = new Array(n);
+  for (let y = 0; y < ciudad.lado; y++) {
+    for (let x = 0; x < ciudad.lado; x++) {
+      const niebla = x < MARGEN_NEBLINA || y < MARGEN_NEBLINA ||
+                     x >= ciudad.lado - MARGEN_NEBLINA || y >= ciudad.lado - MARGEN_NEBLINA;
+      ciudad.tipo[y * ciudad.lado + x] = niebla ? "neblina" : "calle";
+    }
+  }
+  for (const c of ciudad.cuadras) {
+    c.casas = [];
+    for (let y = c.y; y < c.y + c.h; y++) {
+      for (let x = c.x; x < c.x + c.w; x++) {
+        const orilla = x === c.x || y === c.y || x === c.x + c.w - 1 || y === c.y + c.h - 1;
+        const tipo = orilla ? (((x + y) & 1) ? "casa_a" : "casa_b") : "patio";
+        ciudad.tipo[y * ciudad.lado + x] = tipo;
+        if (orilla) c.casas.push({ x: x, y: y });
+      }
+    }
+  }
+  const p = ciudad.pizzeria;
+  ciudad.tipo[p.y * ciudad.lado + p.x] = "pizzeria";
+}
+
+function fundarCiudad(lado, cuantasCuadras) {
+  ciudad.lado = lado;
+  ciudad.cuadras = [];
+  ciudad.pizzeria = { x: lado >> 1, y: lado >> 1 };
+  for (let i = 0; i < cuantasCuadras; i++) nuevaCuadra();
+  volcarCiudad();
+
+  /* la pizzería se pone en una cuadra, mirando a la calle */
+  const casas = [];
+  for (const c of ciudad.cuadras) for (const k of c.casas) casas.push(k);
+  if (casas.length) {
+    const medio = lado / 2;
+    let elegida = casas[0], mejor = Infinity;
+    for (const k of casas) {
+      if (!calleJunto(k)) continue;
+      const d = Math.abs(k.x - medio) + Math.abs(k.y - medio);
+      if (d < mejor) { mejor = d; elegida = k; }
+    }
+    ciudad.pizzeria = { x: elegida.x, y: elegida.y };
+    volcarCiudad();
+  }
+}
+
+/* ¿desde qué casilla de calle se atiende esta casa? */
+function calleJunto(casa) {
+  for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+    if (pisable(casa.x + dx, casa.y + dy)) return { x: casa.x + dx, y: casa.y + dy };
+  }
+  return null;
+}
+
+/* ───────────────── El pizzero ───────────────── */
+
+const DIRS = {
+  arriba:    { dx: 0, dy:-1 },
+  abajo:     { dx: 0, dy: 1 },
+  izquierda: { dx:-1, dy: 0 },
+  derecha:   { dx: 1, dy: 0 }
+};
+
+const jugador = {
+  x: 0, y: 0, px: 0, py: 0,
+  dir: "abajo", moviendo: false, animacion: 0, cuadro: 0
+};
+
+const juego = {
+  estado: "menu",        // menu | jugando | despedido
+  entregas: 0,
+  fase: 0,
+  pizzas: [],
+  sinEntregar: 0,
+  tiempo: 0,
+  record: leerRecord()
+};
+
+function leerRecord() {
+  try { return parseInt(localStorage.getItem("stumpffia:pizzero"), 10) || 0; }
+  catch (e) { return 0; }
+}
+function guardarRecord(v) {
+  try { localStorage.setItem("stumpffia:pizzero", String(v)); } catch (e) {}
+}
+
+function fase() { return FASES[juego.fase]; }
+function plazoPizza() { return SEGUNDOS_PIZZA - juego.fase * RESTA_POR_FASE; }
+
+/* ───────────────── Pedidos ───────────────── */
+
+/* Elige una casa que no esté ya esperando pizza. */
+function casaLibre() {
+  const ocupadas = new Set(juego.pizzas.map((p) => p.casa.x + "," + p.casa.y));
+  const candidatas = [];
+  for (const c of ciudad.cuadras) {
+    for (const k of c.casas) {
+      if (k.x === ciudad.pizzeria.x && k.y === ciudad.pizzeria.y) continue;
+      if (ocupadas.has(k.x + "," + k.y)) continue;
+      if (!calleJunto(k)) continue;
+      candidatas.push(k);
+    }
+  }
+  return candidatas.length ? candidatas[entero(candidatas.length)] : null;
+}
+
+function recoger() {
+  while (juego.pizzas.length < fase().capacidad) {
+    const casa = casaLibre();
+    if (!casa) break;
+    juego.pizzas.push({ casa: casa, queda: plazoPizza() });
+  }
+}
+
+function entregar(indicePizza) {
+  juego.pizzas.splice(indicePizza, 1);
+  juego.entregas++;
+  juego.sinEntregar = 0;
+
+  if (juego.entregas > juego.record) { juego.record = juego.entregas; guardarRecord(juego.record); }
+
+  /* cada pizza entregada es una cuadra más en la ciudad */
+  agregarCuadra();
+
+  if (juego.fase === 0 && juego.entregas >= META_MOTO) ascender(1);
+  else if (juego.fase === 1 && juego.entregas >= META_AUTO) ascender(2);
+}
+
+/* Al ascender, la ciudad dobla su superficie y se llena de cuadras nuevas. */
+function ascender(nuevaFase) {
+  juego.fase = nuevaFase;
+  const ladoViejo = ciudad.lado;
+  const ladoNuevo = Math.round(ladoViejo * Math.SQRT2);
+  agrandar(Math.round((ladoNuevo - ladoViejo) / 2));
+
+  const objetivo = ciudad.cuadras.length * 2;
+  for (let i = ciudad.cuadras.length; i < objetivo; i++) if (!nuevaCuadra()) break;
+  volcarCiudad();
+
+  for (const p of juego.pizzas) p.queda = Math.min(p.queda, plazoPizza());
+  mostrarAscenso();
+}
+
+/* ───────────────── Movimiento ───────────────── */
+
+function intentarMover(dir) {
+  if (jugador.moviendo || juego.estado !== "jugando") return;
+  jugador.dir = dir;
+  const d = DIRS[dir];
+  const nx = jugador.x + d.dx, ny = jugador.y + d.dy;
+
+  /* ¿es la casa que espera una pizza? entonces se entrega */
+  for (let i = 0; i < juego.pizzas.length; i++) {
+    if (juego.pizzas[i].casa.x === nx && juego.pizzas[i].casa.y === ny) { entregar(i); return; }
+  }
+
+  /* ¿es el mostrador? entonces se recoge */
+  if (nx === ciudad.pizzeria.x && ny === ciudad.pizzeria.y) { recoger(); return; }
+
+  if (!pisable(nx, ny)) return;
+  jugador.x = nx; jugador.y = ny;
+  jugador.moviendo = true;
+  jugador.cuadro = (jugador.cuadro + 1) % 4;   // quieto, paso_1, quieto, paso_2
+}
+
+/* ───────────────── Bucle ───────────────── */
+
+const teclas = Object.create(null);
+const ordenDirecciones = [];
+
+function actualizar(dt) {
+  if (juego.estado !== "jugando") return;
+  juego.tiempo += dt;
+
+  const dir = ordenDirecciones.length
+    ? DIRECCION_TECLA[ordenDirecciones[ordenDirecciones.length - 1]]
+    : null;
+  if (dir) intentarMover(dir);
+
+  if (jugador.moviendo) {
+    const avance = dt / fase().paso;
+    jugador.px += Math.sign(jugador.x - jugador.px) * Math.min(avance, Math.abs(jugador.x - jugador.px));
+    jugador.py += Math.sign(jugador.y - jugador.py) * Math.min(avance, Math.abs(jugador.y - jugador.py));
+    if (jugador.px === jugador.x && jugador.py === jugador.y) jugador.moviendo = false;
+  }
+
+  /* las pizzas se enfrían */
+  for (let i = juego.pizzas.length - 1; i >= 0; i--) {
+    juego.pizzas[i].queda -= dt;
+    if (juego.pizzas[i].queda <= 0) juego.pizzas.splice(i, 1);   // se echó a perder
+  }
+
+  /* el reloj del despido */
+  juego.sinEntregar += dt;
+  if (juego.sinEntregar >= SEGUNDOS_DESPIDO) despedir();
+}
+
+function despedir() {
+  juego.estado = "despedido";
+  mostrarCapa("Te despidieron",
+    "Pasaste cinco minutos sin entregar una sola pizza.",
+    "Buscar otro trabajo",
+    [["Pizzas entregadas", juego.entregas], ["Tu récord", juego.record]]);
+}
+
+/* ───────────────── Dibujo ───────────────── */
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d", { alpha: false });
+let escala = 3;
+
+function ajustar() {
+  lienzo.width = window.innerWidth;
+  lienzo.height = window.innerHeight;
+  escala = Math.max(2, Math.min(4, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 190)));
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener("resize", ajustar);
+
+function ponerTile(nombre, x, y, marcado) {
+  const n = indiceTile[nombre];
+  if (n === undefined) return;
+  const hoja = marcado ? ATLAS_TILES_MARCADO : ATLAS_TILES;
+  ctx.drawImage(hoja, n * TAM, 0, TAM, TAM, x, y, TAM * escala, TAM * escala);
+}
+
+function ponerSprite(nombre, x, y, veces) {
+  const n = indice[nombre];
+  if (n === undefined) return;
+  const lado = TAM * escala * veces;
+  const centrado = (TAM * escala - lado) / 2;
+  ctx.drawImage(ATLAS_SPRITES, n * TAM, 0, TAM, TAM,
+                Math.round(x + centrado), Math.round(y + centrado), lado, lado);
+}
+
+function nombreDelJugador() {
+  const f = fase();
+  const paso = ["quieto", "paso_1", "quieto", "paso_2"][jugador.moviendo ? jugador.cuadro : 0];
+  if (!f.sprite) {
+    const carga = juego.pizzas.length ? "con_pizza" : "sin_pizza";
+    return carga + "_" + jugador.dir + "_" + paso;
+  }
+  const quieto = f.sprite === "moto" ? "quieta" : "quieto";
+  const mov = paso === "quieto" ? quieto : (paso === "paso_1" ? "mov_1" : "mov_2");
+  return f.sprite + "_" + jugador.dir + "_con_pizzero_" + mov;
+}
+
+function dibujar() {
+  const paso = TAM * escala;
+  const camX = jugador.px * paso - lienzo.width / 2 + paso / 2;
+  const camY = jugador.py * paso - lienzo.height / 2 + paso / 2;
+  const aX = (x) => x * paso - camX;
+  const aY = (y) => y * paso - camY;
+
+  ctx.fillStyle = MARINO;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+
+  const destinos = new Set(juego.pizzas.map((p) => p.casa.x + "," + p.casa.y));
+  const latido = (juego.tiempo % 0.9) < 0.45;
+
+  const x0 = Math.floor(camX / paso) - 1, y0 = Math.floor(camY / paso) - 1;
+  const columnas = Math.ceil(lienzo.width / paso) + 2;
+  const filas = Math.ceil(lienzo.height / paso) + 2;
+
+  for (let y = y0; y < y0 + filas; y++) {
+    for (let x = x0; x < x0 + columnas; x++) {
+      const tipo = enMapa(x, y) ? tipoEn(x, y) : "neblina";
+      const esDestino = destinos.has(x + "," + y);
+      ponerTile(tipo, aX(x), aY(y), esDestino && latido);
+    }
+  }
+
+  /* el reloj de cada pizza, flotando sobre su casa */
+  ctx.font = "700 " + Math.round(9 * escala / 2) + "px Nunito, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  for (const p of juego.pizzas) {
+    const cx = aX(p.casa.x) + paso / 2, cy = aY(p.casa.y) - 4;
+    if (cx < -60 || cx > lienzo.width + 60 || cy < -30 || cy > lienzo.height + 30) continue;
+    const texto = reloj(p.queda);
+    const ancho = ctx.measureText(texto).width + 12;
+    ctx.fillStyle = "rgba(11,26,74,.9)";
+    ctx.fillRect(cx - ancho / 2, cy - 15, ancho, 17);
+    ctx.fillStyle = p.queda < 45 ? "#fff" : CLARO;
+    ctx.fillText(texto, cx, cy - 3);
+  }
+
+  ponerSprite(nombreDelJugador(), aX(jugador.px), aY(jugador.py), fase().escala);
+}
+
+function reloj(segundos) {
+  const s = Math.max(0, Math.ceil(segundos));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+/* ───────────────── Marcador ───────────────── */
+
+const elEntregas = document.getElementById("entregas");
+const elDespido = document.getElementById("despido");
+const elVehiculo = document.getElementById("vehiculo");
+const elPizzas = document.getElementById("pizzas");
+const fichaDespido = document.getElementById("ficha-despido");
+
+function pintarMarcador() {
+  elEntregas.textContent = juego.entregas;
+  const queda = Math.max(0, SEGUNDOS_DESPIDO - juego.sinEntregar);
+  elDespido.textContent = reloj(queda);
+  fichaDespido.classList.toggle("urgente", queda < 60 && juego.estado === "jugando");
+  elVehiculo.textContent = fase().nombre;
+
+  while (elPizzas.children.length > juego.pizzas.length) elPizzas.lastChild.remove();
+  while (elPizzas.children.length < juego.pizzas.length) {
+    const d = document.createElement("div");
+    d.className = "ficha";
+    d.innerHTML = "<span></span><b></b>";
+    elPizzas.appendChild(d);
+  }
+  juego.pizzas.forEach((p, i) => {
+    const d = elPizzas.children[i];
+    d.firstChild.textContent = "PIZZA " + (i + 1);
+    d.lastChild.textContent = reloj(p.queda);
+    d.classList.toggle("urgente", p.queda < 45);
+  });
+}
+
+/* ───────────────── Pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+const capaMarcas = document.getElementById("capa-marcas");
+
+function mostrarCapa(titulo, texto, boton, filas) {
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capaMarcas.innerHTML = "";
+  for (const [etiqueta, valor] of filas || []) {
+    const d = document.createElement("div");
+    const s = document.createElement("span"); s.textContent = etiqueta;
+    const b = document.createElement("b"); b.textContent = valor;
+    d.appendChild(s); d.appendChild(b);
+    capaMarcas.appendChild(d);
+  }
+  capa.classList.add("visible");
+}
+
+function mostrarAscenso() {
+  const f = fase();
+  juego.estado = "pausa";
+  mostrarCapa("¡" + f.nombre + "!",
+    f.sprite === "moto"
+      ? "Diez pizzas entregadas. La moto es tuya: más rápida y con sitio para dos pizzas."
+      : "Treinta y seis entregas. El auto es tuyo: cuatro pizzas de una tacada.",
+    "Seguir repartiendo",
+    [["Pizzas a la vez", f.capacidad],
+     ["Plazo por pizza", reloj(plazoPizza())],
+     ["La ciudad", "el doble de grande"]]);
+}
+
+function botonCapa() {
+  if (juego.estado === "pausa") { juego.estado = "jugando"; capa.classList.remove("visible"); }
+  else empezar();
+}
+capaBoton.addEventListener("click", botonCapa);
+
+/* ───────────────── Arranque ───────────────── */
+
+function empezar() {
+  semilla = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+  juego.entregas = 0;
+  juego.fase = 0;
+  juego.pizzas = [];
+  juego.sinEntregar = 0;
+  juego.tiempo = 0;
+
+  fundarCiudad(36, 8);
+
+  const salida = calleJunto(ciudad.pizzeria) || { x: ciudad.pizzeria.x, y: ciudad.pizzeria.y + 1 };
+  jugador.x = salida.x; jugador.y = salida.y;
+  jugador.px = salida.x; jugador.py = salida.y;
+  jugador.dir = "abajo"; jugador.moviendo = false; jugador.cuadro = 0;
+
+  juego.estado = "jugando";
+  capa.classList.remove("visible");
+  ajustar();
+}
+
+/* ───────────────── Controles ───────────────── */
+
+const DIRECCION_TECLA = {
+  ArrowUp:"arriba", KeyW:"arriba", ArrowDown:"abajo", KeyS:"abajo",
+  ArrowLeft:"izquierda", KeyA:"izquierda", ArrowRight:"derecha", KeyD:"derecha"
+};
+
+function pulsar(code) {
+  if (!DIRECCION_TECLA[code]) { teclas[code] = true; return; }
+  const i = ordenDirecciones.indexOf(code);
+  if (i !== -1) ordenDirecciones.splice(i, 1);
+  ordenDirecciones.push(code);
+  teclas[code] = true;
+}
+function soltar(code) {
+  teclas[code] = false;
+  const i = ordenDirecciones.indexOf(code);
+  if (i !== -1) ordenDirecciones.splice(i, 1);
+}
+
+addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") {
+    if (juego.estado !== "jugando") { e.preventDefault(); botonCapa(); }
+    return;
+  }
+  if (DIRECCION_TECLA[e.code]) { e.preventDefault(); if (!e.repeat) pulsar(e.code); }
+});
+addEventListener("keyup", function (e) { soltar(e.code); });
+addEventListener("blur", function () {
+  for (const k in teclas) teclas[k] = false;
+  ordenDirecciones.length = 0;
+});
+
+if (matchMedia("(hover: none)").matches) document.body.classList.add("tactil");
+const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
+for (const boton of document.querySelectorAll("#mando [data-dir]")) {
+  const code = mapaTactil[boton.dataset.dir];
+  const on  = (e) => { e.preventDefault(); pulsar(code); };
+  const off = (e) => { e.preventDefault(); soltar(code); };
+  boton.addEventListener("pointerdown", on);
+  boton.addEventListener("pointerup", off);
+  boton.addEventListener("pointercancel", off);
+  boton.addEventListener("pointerleave", off);
+}
+
+/* ───────────────── Marcha ───────────────── */
+
+let ultimo = 0;
+function cuadro(ahora) {
+  requestAnimationFrame(cuadro);
+  const dt = Math.min(0.05, (ahora - ultimo) / 1000 || 0);
+  ultimo = ahora;
+  actualizar(dt);
+  if (ciudad.tipo) { dibujar(); pintarMarcador(); }
+}
+
+/* API mínima para probar el juego desde la consola */
+window.PIZZERO = { juego, jugador, ciudad, empezar, actualizar, intentarMover,
+                   recoger, entregar, agregarCuadra, calleJunto, FASES, plazoPizza };
+
+ajustar();
+empezar();
+juego.estado = "menu";
+mostrarCapa("Pizzero",
+  "Recoge las pizzas en el mostrador y llévalas a su casa antes de que se enfríen.",
+  "Empezar el turno",
+  [["Moverte", "↑ ↓ ← →  ·  W A S D"],
+   ["Recoger y entregar", "camina hacia la puerta"],
+   ["Tu récord", juego.record + " pizzas"]]);
+requestAnimationFrame(cuadro);
+</script>
+</body>
+</html>

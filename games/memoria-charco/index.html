@@ -115,7 +115,6 @@
     <button id="capa-boton">Jugar</button>
     <div class="marcas">
       <div><span>Tu récord</span><b id="capa-record">0</b></div>
-      <div><span>Rondas que aguanta el charco</span><b>1 000 001</b></div>
     </div>
     <a href="/">Volver a Stumpffia</a>
   </div>
@@ -146,7 +145,6 @@ const MARINO = "#0B1A4A";
 const CLARO  = "#7EC8F2";
 const LADO_TILE = 16;
 const LADO_RANA = 32;
-const TOPE = 1000001;          // más allá de aquí el charco se rinde
 
 /* ───────────────── Atlas ───────────────── */
 
@@ -341,7 +339,6 @@ function tocar(n) {
     juego.record = juego.ronda;
     guardarRecord(juego.record);
   }
-  if (juego.ronda >= TOPE) { coronar(); return; }
 
   juego.ronda++;
   juego.paso = 0;
@@ -359,13 +356,6 @@ function fallar() {
       "Llegaste a la ronda " + juego.ronda + ". La rana que tocaba era otra.",
       "Otra vez");
   }, 700);
-}
-
-function coronar() {
-  juego.estado = "fallo";
-  mostrarCapa("Un millón y una",
-    "Aguantaste las " + TOPE.toLocaleString("es") + " rondas. El charco se rinde.",
-    "Empezar de nuevo");
 }
 
 /* ───────────────── Dibujo ───────────────── */
@@ -543,7 +533,7 @@ function cuadro(ahora) {
 }
 
 /* API mínima para probar el juego desde la consola */
-window.MEMORIA = { juego, RANAS, empezar, tocar, actualizar, paso, TOPE,
+window.MEMORIA = { juego, RANAS, empezar, tocar, actualizar, paso,
                    get semilla() { return semilla; } };
 
 ajustar();
