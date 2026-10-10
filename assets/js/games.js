@@ -18,8 +18,8 @@ window.STUMPFFIA = {
       id: "tanques",
       nombre: "Tanques",
       emoji: "💥",
-      desc: "Cinco tanques enemigos te buscan. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.",
-      peso: "13 KB",
+      desc: "Quince tanques enemigos te buscan. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.",
+      peso: "14 KB",
       pronto: false
     },
     {

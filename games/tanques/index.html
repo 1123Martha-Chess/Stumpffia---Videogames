@@ -8,13 +8,20 @@
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/fuente.css">
 <style>
-  :root { --marino:#0B1A4A; --claro:#7EC8F2; }
+  :root {
+    --marino:#0B1A4A;          /* fondo */
+    --tarjeta:#13295E;         /* superficie de la tarjeta */
+    --claro:#7EC8F2;           /* 9.1:1 sobre el fondo, 7.6:1 sobre la tarjeta */
+    --apagado:#6E96C4;         /* 4.5:1 sobre la tarjeta */
+    --borde:rgba(126,200,242,.18);
+  }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
   body {
     margin:0; background:var(--marino); color:var(--claro);
-    font:15px/1.4 ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+    font:15px/1.4 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
   }
@@ -52,21 +59,55 @@
   /* Pantallas de menú, victoria y derrota */
   #capa {
     position:fixed; inset:0; z-index:10;
-    display:none; flex-direction:column; align-items:center; justify-content:center;
-    gap:18px; padding:24px; text-align:center;
-    background:rgba(11,26,74,.94);
+    display:none; align-items:center; justify-content:center; padding:20px;
+    background:rgba(11,26,74,.72);
+    backdrop-filter:saturate(160%) blur(18px);
+    -webkit-backdrop-filter:saturate(160%) blur(18px);
   }
   #capa.visible { display:flex; }
-  #capa h1 { font-size:clamp(28px,9vw,52px); margin:0; letter-spacing:-.02em; }
-  #capa p { margin:0; max-width:34ch; opacity:.8; }
-  #capa .teclas { font-size:13px; opacity:.6; line-height:1.9; }
-  #capa button {
-    min-height:48px; padding:0 26px; margin-top:4px;
+
+  .tarjeta {
+    width:min(420px,100%); padding:34px 30px 26px; text-align:center;
+    background:var(--tarjeta); border:1px solid var(--borde); border-radius:28px;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
+  }
+  .tarjeta-marca {
+    width:46px; height:46px; margin:0 auto 16px;
+    background:var(--claro);
+    -webkit-mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+    mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+  }
+  .tarjeta h1 {
+    margin:0 0 8px; font-size:clamp(30px,8vw,40px);
+    font-weight:800; letter-spacing:-.03em; line-height:1.1;
+  }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:15px; line-height:1.5; }
+  .tarjeta button {
+    width:100%; min-height:50px; margin-top:22px;
     border:none; border-radius:999px; cursor:pointer;
     font:inherit; font-size:16px; font-weight:800;
     background:var(--claro); color:var(--marino);
+    transition:transform .12s ease, opacity .15s ease;
   }
-  #capa a { color:var(--claro); font-size:14px; opacity:.7; }
+  .tarjeta button:hover { opacity:.88; }
+  .tarjeta button:active { transform:scale(.98); }
+
+  .controles {
+    margin:22px 0 0; padding:14px 2px 2px; border-top:1px solid var(--borde);
+    display:grid; gap:9px; font-size:13px;
+  }
+  .controles div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .controles span { color:var(--apagado); }
+  .controles kbd {
+    font:inherit; font-size:12px; font-weight:700;
+    padding:3px 9px; border-radius:7px;
+    background:rgba(126,200,242,.12); border:1px solid var(--borde); color:var(--claro);
+  }
+  .tarjeta a {
+    display:inline-block; margin-top:18px;
+    color:var(--apagado); font-size:13px; font-weight:700; text-decoration:none;
+  }
+  .tarjeta a:hover { color:var(--claro); }
 </style>
 </head>
 <body>
@@ -91,13 +132,19 @@
 </div>
 
 <div id="capa">
-  <h1 id="capa-titulo">Tanques</h1>
-  <p id="capa-texto"></p>
-  <button id="capa-boton">Jugar</button>
-  <p class="teclas">
-    Flechas o W A S D para moverte · <b>O</b> para disparar · <b>Espacio</b> para el menú
-  </p>
-  <a href="/">Volver a Stumpffia</a>
+  <div class="tarjeta">
+    <div class="tarjeta-marca" aria-hidden="true"></div>
+    <h1 id="capa-titulo">Tanques</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Jugar</button>
+    <div class="controles">
+      <div><span>Moverte</span><kbd>↑ ↓ ← →</kbd></div>
+      <div><span>o también</span><kbd>W A S D</kbd></div>
+      <div><span>Disparar</span><kbd>O</kbd></div>
+      <div><span>Menú</span><kbd>Espacio</kbd></div>
+    </div>
+    <a href="/">Volver a Stumpffia</a>
+  </div>
 </div>
 
 <script>
@@ -119,88 +166,104 @@ const BITS = "AYABgAGAYYatte23rbXtt6vV69er1evXrDXv92AGAAABgAGAAYBhhu23rbXtt62169
 // Generado por convertir-mapa.mjs desde mapaTanques.png — no editar a mano.
 const MAPA_CODIGOS = {"suelo":".","borde":"#","lago":"~","montana":"^","piedras":"p","troncos":"t","barrera_metal":"b","roca":"r"};
 const MAPA_FILAS = [
-  "########################################",
-  "########################################",
-  "##.........ttttt.....ttttt.............#",
-  "##..........tttt....ttttttt............#",
-  "##..................ttttttt............#",
-  "##..................ttttttt............#",
-  "##..................ttttt..............#",
-  "##.....bb............tt................#",
-  "##............................bb.......#",
-  "##..........................bbbb.......#",
-  "##............rrrr..........bbbb.......#",
-  "##............rrrr..........bbbb.......#",
-  "##..^........rrrrrr....^...........rrr.#",
-  "##.^^^........rrrr....^^^.........rrrrr#",
-  "##^^^^^.......rrrr...^^^^^........rrrrr#",
-  "##.^^^..............^^^^^^^.......rrrrr#",
-  "##..^..............^^^^^^^^^.......rrr.#",
-  "##..................^^^^^^^............#",
-  "##...................^^^^^.............#",
-  "##....................^^^.....tt.......#",
-  "##bb...~...............^....tttt......r#",
-  "##bb..~~~~~~~.....r........ttt.......rr#",
-  "##b..~~~~~~~~~....rrrrr..............rr#",
-  "##...~~~~~~~~~~...rrrrr......^.......rr#",
-  "##..~~~~~~~~~~~....rrrr.....^^^.......r#",
-  "##.~~~~~~~~~~~~~....rr.....^^^^^.......#",
-  "##.~~~~~~~~~~~~~~.........^^^^^^^......#",
-  "##.~~~~~~~~~~~~~~..........^^^^^.......#",
-  "##..~~~~~~~~~~~~~...........^^^........#",
-  "##..~~~~~~~~~~~~~............^.........#",
-  "##..~~~~~~~~~~~~.......................#",
-  "##...~~~~~~~~~~~.......................#",
-  "##....~~~~~~~~~......tt..............bb#",
-  "##.....~~~~~~~~......................bb#",
-  "##......~~~~~~~......................bb#",
-  "##...................................bb#",
-  "##...................................bb#",
-  "##.....................................#",
-  "##.....................................#",
-  "########################################"
+  "################################################",
+  "################################################",
+  "##...........tttttt.......t...................##",
+  "##...........tttttt......ttttttt..............##",
+  "##...............tt.....tttttttt..............##",
+  "##......................tttttttt..............##",
+  "##......................tttttttt..............##",
+  "##......................ttttttt...............##",
+  "##.......b...............tttt.................##",
+  "##.......b..........................b.........##",
+  "##................................b.bbb.......##",
+  "##...............................bbbbbb.......##",
+  "##...............rrrr............bbbbbb.......##",
+  "##...............rrrrr...........bbbbb........##",
+  "##..............rrrrrr........................##",
+  "##....^.........rrrrrr.....^..............rrrr##",
+  "##...^^^.........rrrrr....^^^............rrrrr##",
+  "##..^^^^^........rrrr....^^^^^...........rrrrr##",
+  "##...^^^................^^^^^^^..........rrrrr##",
+  "##....^................^^^^^^^^^.........rrrrr##",
+  "##....................^^^^^^^^^^^..........rr.##",
+  "##.....................^^^^^^^^^...............#",
+  "##......................^^^^^^^......t.........#",
+  "##.......................^^^^^......ttt........#",
+  "##.b....~.................^^^.....tttt.......r##",
+  "##.bb..~~~~~~~~......r.....^.....ttttt.......r##",
+  "##bbb..~~~~~~~~~.....rrrrrrr.....t..........rrr#",
+  "##....~~~~~~~~~~~....rrrrrrr.......^........rrr#",
+  "##...~~~~~~~~~~~~.....rrrrrr......^^^........rr#",
+  "##..~~~~~~~~~~~~~~~....rrrr......^^^^^.......rr#",
+  "##..~~~~~~~~~~~~~~~~....rr......^^^^^^^.......##",
+  "##.~~~~~~~~~~~~~~~~~.....r.....^^^^^^^^^......##",
+  "##..~~~~~~~~~~~~~~~~............^^^^^^^.......##",
+  "##..~~~~~~~~~~~~~~~~.............^^^^^........##",
+  "##..~~~~~~~~~~~~~~~~..............^^^.........##",
+  "##...~~~~~~~~~~~~~~~...............^..........##",
+  "##...~~~~~~~~~~~~~~~..........................##",
+  "##....~~~~~~~~~~~~~...........................##",
+  "##.....~~~~~~~~~~~~.......t..................b.#",
+  "##.....~~~~~~~~~~~........tt................bb##",
+  "##......~~~~~~~~~~..........................bbb#",
+  "##........~~~~~~~~..........................bbb#",
+  "##..........................................bb##",
+  "##..........................................bb##",
+  "##.............................................#",
+  "##............................................##",
+  "###...........................................##",
+  "################################################"
 ];
 const MAPA_ROJAS = [
-  "1111111111111111111111111111111111111111",
-  "1111111111111111111111111111111111111111",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1100000000000000000000000000000000000001",
-  "1111111111111111111111111111111111111111"
+  "111111111111111111111111111111111111111111111111",
+  "111111111111111111111111111111111111111111111111",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000011",
+  "110000000000000000000000000000000000000000000001",
+  "110000000000000000000000000000000000000000000011",
+  "111000000000000000000000000000000000000000000011",
+  "111111111111111111111111111111111111111111111111"
 ];
 /* MAPA-FIN */
 
@@ -487,6 +550,7 @@ const MUNICION_MAX = 5;      // "solo 5 balas"
 const RECARGA = 2;           // un cohete cada 2 segundos
 const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
 const ALCANCE = 20;          // casillas que vuela un cohete
+const ENEMIGOS = 15;         // cuántos tanques enemigos salen
 const VISTA_ENEMIGO = 9;     // radio en el que un enemigo dispara a otro tanque
 const PERSECUCION = 26;      // radio en el que se pone en marcha hacia él
 const GRACIA = 1;            // segundos invulnerable tras recibir un impacto
@@ -514,7 +578,11 @@ function nuevoTanque(x, y, esJugador) {
     municionDoble: 0,
     /* sólo enemigos */
     pensar: 0,
-    objetivo: null
+    objetivo: null,
+    tirosSeguidos: 0,        // disparos lanzados contra el mismo tanque
+    tope: 3 + entero(3),     // entre 3 y 5: ahí se cansa y busca otro
+    harto: null,             // el tanque que deja en paz un rato
+    hartoHasta: 0
   };
 }
 
@@ -559,15 +627,28 @@ function explotar(x, y) {
 }
 
 /* Un cohete llegó a una casilla: rompe terreno, hiere tanques y revienta. */
+const CRUZ = [[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+const CUADRO = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
+
 function impactar(c) {
-  const celdas = c.super
-    ? [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]]   // 3x3
-    : [[0,0]];
+  /* El cohete normal revienta en cruz y el supercohete en 3x3. La cruz es
+     lo que impide que un tanque se salve por estar media casilla más allá;
+     el terreno, en cambio, solo se rompe donde pega, o el mapa se arrasa. */
+  const alcance = c.super ? CUADRO : CRUZ;
 
-  for (const [ox, oy] of celdas) {
+  const i0 = c.y * mundo.ancho + c.x;
+  if (enMapa(c.x, c.y)) {
+    const terreno = TERRENO[mundo.tipo[i0]];
+    if (terreno.vida > 0 && terreno.vida !== Infinity) {
+      mundo.vida[i0] -= c.dano;
+      if (mundo.vida[i0] <= 0) ponerCasilla(c.x, c.y, "suelo");
+    }
+  }
+
+  /* el supercohete sí arrasa su cuadro entero */
+  if (c.super) for (const [ox, oy] of alcance) {
     const x = c.x + ox, y = c.y + oy;
-    if (!enMapa(x, y)) continue;
-
+    if (!enMapa(x, y) || (!ox && !oy)) continue;
     const i = y * mundo.ancho + x;
     const terreno = TERRENO[mundo.tipo[i]];
     if (terreno.vida > 0 && terreno.vida !== Infinity) {
@@ -575,9 +656,16 @@ function impactar(c) {
       if (mundo.vida[i] <= 0) ponerCasilla(x, y, "suelo");
     }
 
-    for (const t of juego.tanques) {
-      if (t.vivo && t.x === x && t.y === y && t !== c.de) herir(t, c.dano);
-    }
+  }
+
+  /* Los tanques se comprueban por donde se ven, no por la casilla a la que
+     van: si no, uno que está deslizándose entre dos casillas se libra. */
+  for (const t of juego.tanques) {
+    if (!t.vivo || t === c.de) continue;
+    const dx = Math.abs(t.px - c.x), dy = Math.abs(t.py - c.y);
+    const dentro = c.super ? (dx <= 1.4 && dy <= 1.4)   // cuadro de 3x3
+                           : (dx + dy <= 1.4);          // cruz
+    if (dentro) herir(t, c.dano);
   }
   explotar(c.x, c.y);
 }
@@ -655,22 +743,43 @@ function pensarEnemigo(t, dt) {
   if (t.pensar > 0) return;
   t.pensar = 0.25;
 
-  /* ¿Hay algún otro tanque cerca? Le dispara a quien sea, incluso a los suyos. */
+  /* ¿Hay algún otro tanque cerca? Le dispara a quien sea, incluso a los suyos.
+     Si lleva muchos tiros contra el mismo sin tumbarlo, lo deja en paz un rato
+     y se va a por el más cercano: así no se obsesiona con uno inalcanzable. */
+  if (t.harto && juego.tiempo > t.hartoHasta) t.harto = null;
+
   let cerca = null, mejor = Infinity;
   for (const o of juego.tanques) {
-    if (!o.vivo || o === t) continue;
+    if (!o.vivo || o === t || o === t.harto) continue;
     const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
     if (dist < mejor && dist <= PERSECUCION) { mejor = dist; cerca = o; }
   }
-  t.objetivo = cerca;
+  if (!cerca && t.harto) {            // si no queda nadie más, vuelve a él
+    t.harto = null;
+    for (const o of juego.tanques) {
+      if (!o.vivo || o === t) continue;
+      const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
+      if (dist < mejor && dist <= PERSECUCION) { mejor = dist; cerca = o; }
+    }
+  }
+
+  if (cerca !== t.objetivo) { t.objetivo = cerca; t.tirosSeguidos = 0; }
 
   /* Si está alineado con alguien, le apunta. Nunca gasta tiros contra el borde. */
   for (const dir of Object.keys(DIRS)) {
     const vista = mirar(t.x, t.y, dir, t);
     if (vista.que === "tanque" && vista.paso <= VISTA_ENEMIGO) {
       t.dir = dir;
-      if (disparar(t)) return;        // sin munición: mejor moverse que quedarse plantado
-      break;
+      if (disparar(t)) {
+        if (vista.tanque === t.objetivo && ++t.tirosSeguidos >= t.tope) {
+          t.harto = t.objetivo;       // se cansa de este y va por otro
+          t.hartoHasta = juego.tiempo + 6;
+          t.tirosSeguidos = 0;
+          t.tope = 3 + entero(3);
+        }
+        return;
+      }
+      break;                          // sin munición: mejor moverse que quedarse plantado
     }
     /* un muro rompible delante del objetivo: vale la pena abrirlo a tiros */
     if (vista.que === "muro" && cerca && vista.paso <= 3) {
@@ -774,7 +883,8 @@ function actualizar(dt) {
       c.x += d.dx; c.y += d.dy; c.recorrido++;
 
       const golpeado = juego.tanques.find(
-        (t) => t.vivo && t !== c.de && t.x === c.x && t.y === c.y);
+        (t) => t.vivo && t !== c.de &&
+               Math.abs(t.px - c.x) < 0.8 && Math.abs(t.py - c.y) < 0.8);
 
       if (!enMapa(c.x, c.y) || golpeado || !pasaBala(c.x, c.y)) {
         impactar(c);
@@ -914,16 +1024,18 @@ function mostrarCapa(titulo, texto, boton) {
 function terminar(resultado) {
   juego.estado = resultado;
   if (resultado === "ganaste") {
-    mostrarCapa("¡Ganaste!", "Acabaste con todos los tanques enemigos.", "Jugar otra vez");
+    mostrarCapa("¡Ganaste!", "Acabaste con los " + ENEMIGOS + " tanques enemigos.", "Jugar otra vez");
   } else {
-    mostrarCapa("Perdiste", "Tu tanque fue destruido.", "Intentar otra vez");
+    const caidos = ENEMIGOS - juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+    mostrarCapa("Perdiste", "Tu tanque fue destruido. Te llevaste " + caidos + " por delante.", "Intentar otra vez");
   }
 }
 
 function abrirMenu() {
   if (juego.estado !== "jugando") return;
   juego.estado = "menu";
-  mostrarCapa("Pausa", "", "Seguir jugando");
+  const quedan = juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+  mostrarCapa("Pausa", "Quedan " + quedan + " de " + ENEMIGOS + " tanques enemigos.", "Seguir jugando");
 }
 
 function botonCapa() {
@@ -956,13 +1068,13 @@ function empezar(numeroEnemigos) {
   juego.jugador = nuevoTanque(jx, jy, true);
   juego.tanques.push(juego.jugador);
 
-  const cuantos = numeroEnemigos === undefined ? 5 : numeroEnemigos;
+  const cuantos = numeroEnemigos === undefined ? ENEMIGOS : numeroEnemigos;
   const alcanzable = alcanzablesDesde(jx, jy);
   let puestos = 0, intentos = 0;
   while (puestos < cuantos && intentos++ < 4000) {
     const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
     if (!alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
-    if (Math.abs(x - jx) + Math.abs(y - jy) < 16) continue;
+    if (Math.abs(x - jx) + Math.abs(y - jy) < 14) continue;
     if (x === jx || y === jy) continue;   // nunca en linea de tiro directa
     juego.tanques.push(nuevoTanque(x, y, false));
     puestos++;
@@ -1044,7 +1156,7 @@ window.TANQUES = { juego, empezar, mundo, teclas, disparar, mover, actualizar };
 ajustarLienzo();
 empezar();
 juego.estado = "menu";
-mostrarCapa("Tanques", "Acaba con los cinco tanques enemigos. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.", "Jugar");
+mostrarCapa("Tanques", "Acaba con los " + ENEMIGOS + " tanques enemigos. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.", "Jugar");
 requestAnimationFrame(cuadro);
 </script>
 </body>
