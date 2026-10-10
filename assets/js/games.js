@@ -33,10 +33,10 @@ window.STUMPFFIA = {
     {
       id: "memoria-charco",
       nombre: "Memoria del Charco",
-      emoji: "🃏",
-      desc: "Encuentra las parejas de bichitos antes de que se acaben los intentos.",
-      peso: "14 KB",
-      pronto: true
+      emoji: "🐸",
+      desc: "Las ranas croan por turnos y cambian de color. Repite el orden, ronda tras ronda.",
+      peso: "7 KB",
+      pronto: false
     },
     {
       id: "atrapa-mosca",

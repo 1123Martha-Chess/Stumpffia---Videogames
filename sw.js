@@ -1,7 +1,7 @@
 /* Stumpffia service worker.
    Sube el número de CACHE cada vez que publiques cambios. */
 
-var CACHE = "stumpffia-v7";
+var CACHE = "stumpffia-v8";
 
 var ESENCIALES = [
   "/",

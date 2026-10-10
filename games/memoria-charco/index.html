@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Memoria del Charco — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/fuente.css">
+<style>
+  :root {
+    --marino:#0B1A4A;
+    --tarjeta:#13295E;
+    --claro:#7EC8F2;
+    --apagado:#6E96C4;
+    --borde:rgba(126,200,242,.18);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    margin:0; background:var(--marino); color:var(--claro);
+    font:15px/1.4 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
+  }
+  canvas { display:block; image-rendering:pixelated; touch-action:none; cursor:pointer; }
+
+  #hud {
+    position:fixed; top:0; left:0; right:0; z-index:3;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  .ficha {
+    display:flex; align-items:baseline; gap:7px;
+    padding:6px 12px; border-radius:13px;
+    background:rgba(19,41,94,.82); border:1px solid var(--borde);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    font-variant-numeric:tabular-nums;
+  }
+  .ficha span { font-size:10px; font-weight:800; letter-spacing:.14em; color:var(--apagado); }
+  .ficha b { font-size:14px; font-weight:800; color:var(--claro); }
+  #aviso { margin-left:auto; }
+  #sonido { pointer-events:auto; cursor:pointer; font:inherit; }
+
+  #capa {
+    position:fixed; inset:0; z-index:10;
+    display:none; align-items:center; justify-content:center; padding:20px;
+    background:rgba(11,26,74,.72);
+    backdrop-filter:saturate(160%) blur(18px);
+    -webkit-backdrop-filter:saturate(160%) blur(18px);
+  }
+  #capa.visible { display:flex; }
+  .tarjeta {
+    width:min(420px,100%); padding:34px 30px 26px; text-align:center;
+    background:var(--tarjeta); border:1px solid var(--borde); border-radius:28px;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
+  }
+  .tarjeta-marca {
+    width:46px; height:46px; margin:0 auto 16px;
+    background:var(--claro);
+    -webkit-mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+    mask:url("/assets/img/logo-96.png") center/contain no-repeat;
+  }
+  .tarjeta h1 {
+    margin:0 0 8px; font-size:clamp(28px,7.5vw,38px);
+    font-weight:800; letter-spacing:-.03em; line-height:1.1;
+  }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:15px; line-height:1.5; }
+  .tarjeta button {
+    width:100%; min-height:50px; margin-top:22px;
+    border:none; border-radius:999px; cursor:pointer;
+    font:inherit; font-size:16px; font-weight:800;
+    background:var(--claro); color:var(--marino);
+    transition:transform .12s ease, opacity .15s ease;
+  }
+  .tarjeta button:hover { opacity:.88; }
+  .tarjeta button:active { transform:scale(.98); }
+  .marcas {
+    margin:22px 0 0; padding:14px 2px 2px; border-top:1px solid var(--borde);
+    display:grid; gap:9px; font-size:13px;
+  }
+  .marcas div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .marcas span { color:var(--apagado); }
+  .marcas b { font-variant-numeric:tabular-nums; }
+  .tarjeta a {
+    display:inline-block; margin-top:18px;
+    color:var(--apagado); font-size:13px; font-weight:700; text-decoration:none;
+  }
+  .tarjeta a:hover { color:var(--claro); }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="ficha"><span>RONDA</span><b id="ronda">1</b></div>
+  <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
+  <div class="ficha" id="aviso"><b>Mira bien</b></div>
+  <div class="ficha" id="sonido" role="button" tabindex="0"><b>♪</b></div>
+</div>
+
+<canvas id="lienzo"></canvas>
+
+<div id="capa">
+  <div class="tarjeta">
+    <div class="tarjeta-marca" aria-hidden="true"></div>
+    <h1 id="capa-titulo">Memoria del Charco</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Jugar</button>
+    <div class="marcas">
+      <div><span>Tu récord</span><b id="capa-record">0</b></div>
+      <div><span>Rondas que aguanta el charco</span><b>1 000 001</b></div>
+    </div>
+    <a href="/">Volver a Stumpffia</a>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   MEMORIA DEL CHARCO — Stumpffia
+   Las ranas croan por turnos y tú repites el orden. Cuando a una le toca
+   croar, se le invierten los colores: lo claro se vuelve oscuro y al revés.
+   Un solo archivo, sin librerías, sin peticiones de red.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* DATOS-INICIO */
+// Generado por empacar.mjs desde sprites/ranas.json — no editar a mano.
+const TILES = ["pasto","agua","agua_onda","junco","roca","nenufar_chico","esq_no","borde_n","esq_ne","borde_o","borde_e","esq_so","borde_s","esq_se","int_no","int_ne","int_so","int_se"];
+const TILES_BITS = "///////X1+/v////////////+v/9/////+v/9/////8AAAAAAAAkABgAAAAAAAAkABgAAAAAAAAJAAYAAAAAAAAAAAAASAAwAAAAAAAAAAAkABgAAAAAAAAAABIADAAAAAAAwBjAGMYYhgiGCIgEiASQRJAyogqsB/ABwAAAAAAAAAAAAAAX4A/0H/g7/Dz8f/4/3D/sEfgOEAfgIAIAAAAAAABBgAfgD8AfiB+YPjw+fB/4H/gP8AfgIYIAAAAA///////X1+/v///4/8L/lP8g/kD8gP0A/AD5APoA+AD////////////BPhSAolUkABgAAAAAAAAJAAYAAAAAAP//////1//v//8f/4P/Uf8I/wR/Aj8BPwm/Bh8AnwBf+gD5APwA/QD8AP0A/AD5JPoY+ADyAPQA8AD0APIA+AAAnwAfAL8kPxi/AD8AvwAfAJ8AXwAPAE8JLwZPAA8AX/oA+QD4AP0A/ID8QP4g/xD/iv/B//j/////////////AAAAAAAAJAAYAAAAAAAAJKqYAFU+CP/B//////////8AHwBfAJ8kPxi/AT8CfwT/Kf9D/x//////6//3//////oA+AD6APAA4gAEAKgAACQAGAAAAAAAAAkABgAAAAAAAB8AXwAfJE8YJwAQAAoAJAAYAAAAAAAACQAGAAAAAAAAAAAAAAAkABgAAAAAAAAkABhQAAgA5ADyAPgA+gD4AAAAAAAAACQAGAAAAAAAACQAGAAVACAARwkPBl8AHwBf";
+const CODIGOS = {"1":"esq_no","2":"borde_n","3":"esq_ne","4":"borde_o","6":"borde_e","7":"esq_so","8":"borde_s","9":"esq_se",".":"pasto","~":"agua","o":"agua_onda","j":"junco","r":"roca","n":"nenufar_chico","q":"int_no","e":"int_ne","z":"int_so","c":"int_se"};
+const ESPECIES = ["rana_verde","sapo_verrugoso","rana_flecha","rana_arboricola"];
+const RANAS_BITS = "AAPAAAA//AAA/v8AAf7/gAf+/+AP///wD///8B9f+vg/sY38P6w1/H8sNP5/YAb+fyAE/n+AAf7/wAP//8JD/8fAA///wAP/fyJE/n4ACH58wAs+fQgbvj4MM/w8D/D8EB/6eAB//7AA///wAP//4AH//4AA//8AAD/8AAADwAAAA8AAAD/8AAD//wAB7/+AB+//4A/3//AP///wH///+D////w////8f/AP/n/oF/5/yBP+foABfv8AAP/+gAF//5AJw/+AAf9/hCH+f6AF/n+AAf5/IAT+PiGAfD1n4Dwe//wIDf/+AA///wAH//8AAf//gAD//wAAP/wAAAPAAAADwAAAP/wAAP//AAH//4AA///gAP//8AB//7AQP/14PB/+/D4Znvx/BC7+fwAE/n+gDf5/lCn+/8Qj///0L///9C///7Qt/3+UKf57oYX+Z2PG/n9//v4+v/18P////B////gP///wD/9/8Af/f+AB/3+AAP9/AAA//AAAA8AAAAPAAAA//AAA//8AAf//gAf//wAP//8ADP/+ABz//Ag/c8g8P62wfH/KUP5/7nP+f/AH/n/wD/7/4Af//+AH///gB///8A//f+AH/n/Ri95/v/3mf7/9/j9//vw8//88HP//OA////AP/3/wB/9/4AH/f4AA/38AAD/8AAADwAA=";
+const MAPA = ["....................","....................","...122222223........","...4~~~o~~~e22223...","..1q~j~~~~~~~~~~6...","..4~~~~~~~~n~~o~6...","..4~o~~~~~~~~~~~e3..","..4~~~~~r~~~~~~~~6..","..4~~n~~~~~~~o~~~6..","..7z~~~~~~~~~~~~~6..","...4~~~~o~~~~j~~c9..","...788888z~~~~~~6...",".........78888889...","....................","...................."];
+const PUESTOS = [{"e":0,"x":88,"y":80},{"e":1,"x":200,"y":72},{"e":2,"x":96,"y":128},{"e":3,"x":176,"y":120}];
+/* DATOS-FIN */
+
+const MARINO = "#0B1A4A";
+const CLARO  = "#7EC8F2";
+const LADO_TILE = 16;
+const LADO_RANA = 32;
+const TOPE = 1000001;          // más allá de aquí el charco se rinde
+
+/* ───────────────── Atlas ───────────────── */
+
+function aBytes(base64) {
+  const bin = atob(base64);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+}
+
+const bitsTile = aBytes(TILES_BITS);
+const bitsRana = aBytes(RANAS_BITS);
+
+/* Dibuja un juego de sprites en un lienzo largo. "invertido" cambia los dos
+   colores de sitio, que es justo lo que hace una rana al croar. */
+function atlas(bits, lado, cuantos, invertido) {
+  const bytes = (lado * lado) / 8;
+  const lienzo = document.createElement("canvas");
+  lienzo.width = lado * cuantos;
+  lienzo.height = lado;
+  const ctx = lienzo.getContext("2d");
+  const img = ctx.createImageData(lienzo.width, lado);
+  const cl = [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
+
+  for (let n = 0; n < cuantos; n++) {
+    for (let y = 0; y < lado; y++) {
+      for (let x = 0; x < lado; x++) {
+        const i = y * lado + x;
+        const encendido = ((bits[n * bytes + (i >> 3)] >> (7 - (i & 7))) & 1) === 1;
+        const color = (invertido ? !encendido : encendido) ? cl : ma;
+        const o = (y * lienzo.width + n * lado + x) * 4;
+        img.data[o] = color[0]; img.data[o+1] = color[1];
+        img.data[o+2] = color[2]; img.data[o+3] = 255;
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return lienzo;
+}
+
+const ATLAS_TILES = atlas(bitsTile, LADO_TILE, TILES.length, false);
+const ATLAS_RANAS = atlas(bitsRana, LADO_RANA, ESPECIES.length, false);
+const ATLAS_RANAS_CROANDO = atlas(bitsRana, LADO_RANA, ESPECIES.length, true);
+
+const indiceTile = {};
+TILES.forEach((n, i) => { indiceTile[n] = i; });
+
+/* ───────────────── El charco ───────────────── */
+
+const ANCHO = MAPA[0].length * LADO_TILE;
+const ALTO = MAPA.length * LADO_TILE;
+
+/* Las cuatro ranas, con su casilla de toque. */
+const RANAS = PUESTOS.map((p) => ({
+  especie: p.e, x: p.x, y: p.y,
+  croando: 0            // segundos que le quedan con los colores cambiados
+}));
+
+/* ───────────────── La secuencia ───────────────── */
+
+/* No se guarda: se calcula. Una partida es una semilla, y el paso número n
+   sale de mezclar semilla y n. Así da igual que la ronda sea la 7 o la
+   999 999: ocupa lo mismo, que es nada. */
+let semilla = 1;
+
+function paso(n) {
+  let x = (semilla ^ Math.imul(n + 1, 2654435761)) >>> 0;
+  x ^= x >>> 15; x = Math.imul(x, 2246822507);
+  x ^= x >>> 13; x = Math.imul(x, 3266489909);
+  x ^= x >>> 16;
+  return x & 3;
+}
+
+/* ───────────────── Estado ───────────────── */
+
+const juego = {
+  estado: "menu",      // menu | mostrando | turno | fallo
+  ronda: 1,
+  paso: 0,             // cuál toca dentro de la secuencia
+  espera: 0,           // cuenta atrás entre croar y croar
+  encendida: -1,       // rana que está croando ahora
+  record: leerRecord()
+};
+
+function leerRecord() {
+  try { return parseInt(localStorage.getItem("stumpffia:memoria-charco"), 10) || 0; }
+  catch (e) { return 0; }
+}
+function guardarRecord(v) {
+  try { localStorage.setItem("stumpffia:memoria-charco", String(v)); } catch (e) {}
+}
+
+/* ───────────────── Sonido ───────────────── */
+
+/* Cuatro notas, una por rana. Sin archivos: se generan al vuelo. */
+const NOTAS = [294, 370, 440, 587];
+let audio = null, sonando = true;
+
+function pitido(n, duracion) {
+  if (!sonando) return;
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+    const osc = audio.createOscillator(), vol = audio.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = NOTAS[n] || 220;
+    vol.gain.setValueAtTime(0.0001, audio.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.18, audio.currentTime + 0.012);
+    vol.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + duracion);
+    osc.connect(vol); vol.connect(audio.destination);
+    osc.start(); osc.stop(audio.currentTime + duracion + 0.02);
+  } catch (e) { /* sin audio el juego funciona igual */ }
+}
+
+/* ───────────────── Ritmo ───────────────── */
+
+/* La secuencia se acelera un poco con las rondas, pero nunca tanto como
+   para que deje de verse. */
+function duracionCroar() { return Math.max(0.20, 0.46 - juego.ronda * 0.006); }
+function huecoEntreCroar() { return Math.max(0.09, 0.22 - juego.ronda * 0.004); }
+
+function croar(n, duracion) {
+  RANAS[n].croando = duracion;
+  pitido(RANAS[n].especie, duracion);
+}
+
+/* ───────────────── Bucle ───────────────── */
+
+function actualizar(dt) {
+  for (const r of RANAS) if (r.croando > 0) r.croando = Math.max(0, r.croando - dt);
+
+  if (juego.estado !== "mostrando") return;
+
+  juego.espera -= dt;
+  if (juego.espera > 0) return;
+
+  if (juego.paso >= juego.ronda) {          // terminó de enseñar la ronda
+    juego.estado = "turno";
+    juego.paso = 0;
+    avisar("Te toca");
+    return;
+  }
+
+  const n = paso(juego.paso);
+  croar(n, duracionCroar());
+  juego.espera = duracionCroar() + huecoEntreCroar();
+  juego.paso++;
+}
+
+/* ───────────────── Toques ───────────────── */
+
+function tocar(n) {
+  if (juego.estado !== "turno") return;
+
+  /* al picarle, la rana hace lo mismo que cuando croa sola */
+  croar(n, 0.26);
+
+  if (n !== paso(juego.paso)) { fallar(); return; }
+
+  juego.paso++;
+  if (juego.paso < juego.ronda) return;     // aún faltan pasos de esta ronda
+
+  /* ronda superada */
+  if (juego.ronda > juego.record) {
+    juego.record = juego.ronda;
+    guardarRecord(juego.record);
+  }
+  if (juego.ronda >= TOPE) { coronar(); return; }
+
+  juego.ronda++;
+  juego.paso = 0;
+  juego.estado = "mostrando";
+  juego.espera = 0.75;
+  avisar("Mira bien");
+}
+
+function fallar() {
+  juego.estado = "fallo";
+  pitido(4, 0.45);
+  for (const r of RANAS) r.croando = 0.5;   // todas se apagan a la vez
+  setTimeout(function () {
+    mostrarCapa("Te perdiste",
+      "Llegaste a la ronda " + juego.ronda + ". La rana que tocaba era otra.",
+      "Otra vez");
+  }, 700);
+}
+
+function coronar() {
+  juego.estado = "fallo";
+  mostrarCapa("Un millón y una",
+    "Aguantaste las " + TOPE.toLocaleString("es") + " rondas. El charco se rinde.",
+    "Empezar de nuevo");
+}
+
+/* ───────────────── Dibujo ───────────────── */
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d", { alpha: false });
+let escala = 2;
+
+function ajustar() {
+  const margenArriba = 70;
+  escala = Math.max(1, Math.min(
+    Math.floor(window.innerWidth / ANCHO),
+    Math.floor((window.innerHeight - margenArriba) / ALTO)));
+  lienzo.width = ANCHO * escala;
+  lienzo.height = ALTO * escala;
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener("resize", ajustar);
+
+let reloj = 0;
+
+function dibujar() {
+  ctx.fillStyle = MARINO;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+
+  /* el agua se mueve: las dos variantes de onda se van turnando */
+  const onda = Math.floor(reloj / 0.7) & 1;
+
+  for (let y = 0; y < MAPA.length; y++) {
+    for (let x = 0; x < MAPA[y].length; x++) {
+      let nombre = CODIGOS[MAPA[y][x]] || "agua";
+      if (onda) {
+        if (nombre === "agua") nombre = "agua_onda";
+        else if (nombre === "agua_onda") nombre = "agua";
+      }
+      const n = indiceTile[nombre];
+      if (n === undefined) continue;
+      ctx.drawImage(ATLAS_TILES, n * LADO_TILE, 0, LADO_TILE, LADO_TILE,
+                    x * LADO_TILE * escala, y * LADO_TILE * escala,
+                    LADO_TILE * escala, LADO_TILE * escala);
+    }
+  }
+
+  for (const r of RANAS) {
+    const hoja = r.croando > 0 ? ATLAS_RANAS_CROANDO : ATLAS_RANAS;
+    ctx.drawImage(hoja, r.especie * LADO_RANA, 0, LADO_RANA, LADO_RANA,
+                  r.x * escala, r.y * escala,
+                  LADO_RANA * escala, LADO_RANA * escala);
+  }
+}
+
+/* ───────────────── Marcador ───────────────── */
+
+const elRonda = document.getElementById("ronda");
+const elRecord = document.getElementById("record");
+const elAviso = document.getElementById("aviso");
+
+function pintarMarcador() {
+  elRonda.textContent = juego.ronda.toLocaleString("es");
+  elRecord.textContent = juego.record.toLocaleString("es");
+}
+function avisar(texto) { elAviso.firstElementChild.textContent = texto; }
+
+/* ───────────────── Pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+const capaRecord = document.getElementById("capa-record");
+
+function mostrarCapa(titulo, texto, boton) {
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capaRecord.textContent = juego.record.toLocaleString("es");
+  capa.classList.add("visible");
+}
+
+function empezar() {
+  semilla = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+  juego.ronda = 1;
+  juego.paso = 0;
+  juego.estado = "mostrando";
+  juego.espera = 0.8;
+  for (const r of RANAS) r.croando = 0;
+  avisar("Mira bien");
+  capa.classList.remove("visible");
+  ajustar();
+}
+capaBoton.addEventListener("click", empezar);
+
+/* ───────────────── Controles ───────────────── */
+
+/* Qué rana hay bajo un punto del lienzo. */
+function ranaEn(cx, cy) {
+  const caja = lienzo.getBoundingClientRect();
+  const x = (cx - caja.left) / escala, y = (cy - caja.top) / escala;
+  for (let i = RANAS.length - 1; i >= 0; i--) {
+    const r = RANAS[i];
+    if (x >= r.x && y >= r.y && x < r.x + LADO_RANA && y < r.y + LADO_RANA) return i;
+  }
+  return -1;
+}
+
+lienzo.addEventListener("pointerdown", function (e) {
+  e.preventDefault();
+  const n = ranaEn(e.clientX, e.clientY);
+  if (n !== -1) tocar(n);
+});
+
+/* También con el teclado: 1 2 3 4, de izquierda a derecha y de arriba abajo. */
+const ORDEN = RANAS.map((r, i) => i)
+  .sort((a, b) => (RANAS[a].y - RANAS[b].y) || (RANAS[a].x - RANAS[b].x));
+
+addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") {
+    if (juego.estado === "menu" || juego.estado === "fallo") { e.preventDefault(); empezar(); }
+    return;
+  }
+  const n = ["Digit1", "Digit2", "Digit3", "Digit4"].indexOf(e.code);
+  if (n !== -1) { e.preventDefault(); tocar(ORDEN[n]); }
+});
+
+/* Silenciador */
+const botonSonido = document.getElementById("sonido");
+function alternarSonido() {
+  sonando = !sonando;
+  botonSonido.firstElementChild.textContent = sonando ? "♪" : "♪̸";
+  botonSonido.style.opacity = sonando ? "1" : ".5";
+}
+botonSonido.addEventListener("click", alternarSonido);
+botonSonido.addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); alternarSonido(); }
+});
+
+/* ───────────────── Marcha ───────────────── */
+
+let ultimo = 0;
+function cuadro(ahora) {
+  requestAnimationFrame(cuadro);
+  const dt = Math.min(0.05, (ahora - ultimo) / 1000 || 0);
+  ultimo = ahora;
+  reloj += dt;
+  actualizar(dt);
+  dibujar();
+  pintarMarcador();
+}
+
+/* API mínima para probar el juego desde la consola */
+window.MEMORIA = { juego, RANAS, empezar, tocar, actualizar, paso, TOPE,
+                   get semilla() { return semilla; } };
+
+ajustar();
+pintarMarcador();
+mostrarCapa("Memoria del Charco",
+  "Las ranas croan por turnos y cambian de color. Repite el orden tocándolas. Cada ronda añade una más.",
+  "Jugar");
+requestAnimationFrame(cuadro);
+</script>
+</body>
+</html>
