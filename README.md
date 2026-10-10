@@ -69,9 +69,9 @@ Cada `git push` a la rama principal vuelve a publicar el sitio solo.
 
 La página usa **Nunito** (variable, pesos 400–900), alojada en el propio sitio: no se pide nada a
 Google Fonts ni a ningún otro servidor. Está bajo la SIL Open Font License 1.1, que permite el uso
-comercial y la redistribución; el texto completo está en .
+comercial y la redistribución; el texto completo está en `assets/fonts/OFL.txt`.
 
-El código del sitio es MIT (ver ). El logo de la rana es tuyo y no entra en esa licencia.
+El código del sitio es MIT (ver `LICENSE`). El logo de la rana es tuyo y no entra en esa licencia.
 
 ## Privacidad
 
