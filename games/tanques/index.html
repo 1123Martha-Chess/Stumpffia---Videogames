@@ -325,10 +325,10 @@ function libre(x0, y0, w, h) {
   return true;
 }
 
-/* Elige la pieza de lago que toca segun que vecinos tambien sean lago. */
-function spriteLago(x, y) {
-  const lago = (a, b) => tipoEn(a, b) === "lago";
-  const n = lago(x, y-1), s = lago(x, y+1), o = lago(x-1, y), e = lago(x+1, y);
+/* Elige la pieza de agua que toca según qué vecinos también son agua.
+   Sirve igual para un lago del mapa que para el mar de fuera del marco. */
+function piezaAgua(esAgua, x, y) {
+  const n = esAgua(x, y-1), s = esAgua(x, y+1), o = esAgua(x-1, y), e = esAgua(x+1, y);
   if (!n && !o) return "lago_borde_no";
   if (!n && !e) return "lago_borde_ne";
   if (!s && !o) return "lago_borde_so";
@@ -339,6 +339,12 @@ function spriteLago(x, y) {
   if (!e) return "lago_borde_e";
   return "lago_agua";
 }
+
+const esLago = (x, y) => tipoEn(x, y) === "lago";
+const esMar  = (x, y) => !enMapa(x, y);          // todo lo de fuera del marco
+
+function spriteLago(x, y) { return piezaAgua(esLago, x, y); }
+function spriteMar(x, y)  { return piezaAgua(esMar, x, y); }
 
 /* Lo mismo para la montaña: cima arriba, laderas a los lados, relleno dentro. */
 /* Devuelve [sprite, voltear]. Los sprites de ladera están dibujados para la
@@ -446,7 +452,7 @@ function sembrar(tipo, cuantas, minimo, maximo, comoRombo) {
     const falta = comoRombo
       ? celdas.length < 2 * tamano * tamano + 2 * tamano + 1
       : celdas.length < Math.max(3, tamano * 0.5);
-    if (falta || !separada(celdas)) continue;
+    if (falta || (comoRombo && !separada(celdas))) continue;
     for (const [cx, cy] of celdas) ponerCasilla(cx, cy, tipo);
     puestas++;
   }
@@ -468,6 +474,44 @@ function pintarBordes() {
   }
 }
 
+/* Mientras quede un claro donde alguna casilla esté a más de "holgura" pasos
+   de cualquier obstáculo, se siembra algo justo en el punto más despejado.
+   Así quedan claros por todo el mapa, pero ninguno enorme. */
+function rellenarClaros(holgura) {
+  const n = mundo.ancho * mundo.alto;
+  const sueltos = ["troncos", "barrera_metal", "roca", "piedras"];
+
+  for (let ronda = 0; ronda < 80; ronda++) {
+    const dist = new Int16Array(n).fill(-1);
+    const cola = [];
+    for (let i = 0; i < n; i++) {
+      if (mundo.tipo[i] !== "suelo") { dist[i] = 0; cola.push(i); }
+    }
+
+    let cabeza = 0, lejano = -1, mayor = 0;
+    while (cabeza < cola.length) {
+      const p = cola[cabeza++];
+      const x = p % mundo.ancho, y = (p / mundo.ancho) | 0;
+      for (const d of Object.values(DIRS)) {
+        const nx = x + d.dx, ny = y + d.dy;
+        if (!enMapa(nx, ny)) continue;
+        const q = ny * mundo.ancho + nx;
+        if (dist[q] !== -1) continue;
+        dist[q] = dist[p] + 1;
+        if (dist[q] > mayor) { mayor = dist[q]; lejano = q; }
+        cola.push(q);
+      }
+    }
+
+    if (mayor <= holgura || lejano === -1) return;
+
+    const celdas = mancha(lejano % mundo.ancho, (lejano / mundo.ancho) | 0, 3 + entero(7));
+    if (!celdas.length) return;
+    const tipo = sueltos[entero(sueltos.length)];
+    for (const [cx, cy] of celdas) ponerCasilla(cx, cy, tipo);
+  }
+}
+
 /* Un mapa nuevo cada partida, con el mismo aire que el dibujado a mano:
    un marco rojo, un par de lagos, montañas en rombo y los materiales
    siempre en grupos, nunca sueltos de uno en uno. */
@@ -485,12 +529,16 @@ function generarMapa(ancho, alto) {
     }
   }
 
-  sembrar("lago", 1 + entero(2), 45, 110, false);
-  sembrar("montana", 2 + entero(3), 3, 5, true);
-  sembrar("troncos", 3 + entero(3), 10, 26, false);
-  sembrar("barrera_metal", 3 + entero(3), 8, 20, false);
-  sembrar("roca", 3 + entero(3), 8, 22, false);
-  sembrar("piedras", 2 + entero(3), 6, 16, false);
+  /* Muchas piezas pequeñas en lugar de pocas grandes: así quedan claros
+     por todas partes, pero chicos, y el mapa no son dos manchas y un
+     descampado. Las montañas van primero porque necesitan el rombo entero. */
+  sembrar("montana", 5 + entero(4), 2, 4, true);
+  sembrar("lago", 2 + entero(3), 20, 55, false);
+  sembrar("troncos", 10 + entero(6), 5, 15, false);
+  sembrar("barrera_metal", 10 + entero(6), 4, 13, false);
+  sembrar("roca", 10 + entero(6), 4, 14, false);
+  sembrar("piedras", 8 + entero(6), 3, 11, false);
+  rellenarClaros(4);
 
   pintarBordes();
 }
@@ -527,10 +575,19 @@ const MUNICION_MAX = 5;      // "solo 5 balas"
 const RECARGA = 2;           // un cohete cada 2 segundos
 const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
 const ALCANCE = 20;          // casillas que vuela un cohete
-const ENEMIGOS = 15;         // cuántos tanques enemigos salen
-const TAMANO_MAPA = 48;      // lado del mapa, en casillas
+const ENEMIGOS = 45;         // cuántos tanques enemigos hay que destruir en total
+/* Cuántos pueden estar a la vez sobre el mapa. Con los 45 sueltos de golpe se
+   declaran la guerra entre ellos: 30 caen en los diez primeros segundos sin
+   que tú dispares. Por tandas llegan sin parar y la pelea es tuya.
+   Si lo quieres todo de una, pon aquí 45. */
+const A_LA_VEZ = 12;
+const TAMANO_MAPA = 72;      // lado del mapa, en casillas
 const VISTA_ENEMIGO = 9;     // radio en el que un enemigo dispara a otro tanque
-const PERSECUCION = 26;      // radio en el que se pone en marcha hacia él
+const PERSECUCION = 24;      // radio en el que se pone en marcha hacia él
+/* Y ese radio crece conforme caen enemigos: al principio cada uno se ocupa de
+   lo suyo, pero los últimos rezagados salen a buscarte en vez de esconderse
+   en una esquina y alargar la partida eternamente. */
+const PERSECUCION_EXTRA = 2;
 const GRACIA = 1;            // segundos invulnerable tras recibir un impacto
 
 function nuevoTanque(x, y, esJugador) {
@@ -557,6 +614,8 @@ function nuevoTanque(x, y, esJugador) {
     /* sólo enemigos */
     pensar: 0,
     objetivo: null,
+    ultimaX: x, ultimaY: y,
+    quieto: 0,               // segundos sin cambiar de casilla
     tirosSeguidos: 0,        // disparos lanzados contra el mismo tanque
     tope: 3 + entero(3),     // entre 3 y 5: ahí se cansa y busca otro
     harto: null,             // el tanque que deja en paz un rato
@@ -566,6 +625,10 @@ function nuevoTanque(x, y, esJugador) {
 
 const juego = {
   estado: "menu",            // menu | jugando | ganaste | perdiste
+  enemigosVivos: 0,
+  porSalir: 0,
+  alcanzable: null,
+  relevo: 0,
   jugador: null,
   tanques: [],
   cohetes: [],
@@ -626,7 +689,8 @@ function impactar(c) {
   /* El cohete normal revienta en cruz y el supercohete en 3x3. La cruz es
      lo que impide que un tanque se salve por estar media casilla más allá;
      el terreno, en cambio, solo se rompe donde pega, o el mapa se arrasa. */
-  const alcance = c.super ? CUADRO : CRUZ;
+  const delJugador = c.de && c.de.jugador;
+  const alcance = c.super ? CUADRO : (delJugador ? CRUZ : [[0, 0]]);
 
   const i0 = c.y * mundo.ancho + c.x;
   if (enMapa(c.x, c.y)) {
@@ -655,8 +719,9 @@ function impactar(c) {
   for (const t of juego.tanques) {
     if (!t.vivo || t === c.de) continue;
     const dx = Math.abs(t.px - c.x), dy = Math.abs(t.py - c.y);
-    const dentro = c.super ? (dx <= 1.4 && dy <= 1.4)   // cuadro de 3x3
-                           : (dx + dy <= 1.4);          // cruz
+    const dentro = c.super        ? (dx <= 1.4 && dy <= 1.4)   // cuadro de 3x3
+                 : delJugador     ? (dx + dy <= 1.4)            // cruz
+                                  : (dx < 0.8 && dy < 0.8);     // impacto directo
     if (dentro) herir(t, c.dano);
   }
   explotar(c.x, c.y);
@@ -668,9 +733,10 @@ function herir(t, dano) {
   t.gracia = GRACIA;
   if (t.vida <= 0) {
     t.vivo = false;
+    if (juego.ocupacion[t.y * mundo.ancho + t.x] === t) juego.ocupacion[t.y * mundo.ancho + t.x] = null;
     explotar(t.x, t.y);
     if (t.jugador) terminar("perdiste");
-    else if (juego.tanques.every((o) => o.jugador || !o.vivo)) terminar("ganaste");
+    else if (juego.porSalir === 0 && juego.tanques.every((o) => o.jugador || !o.vivo)) terminar("ganaste");
   }
 }
 
@@ -698,8 +764,21 @@ function recoger(t, poder) {
 
 /* ───────────────── Movimiento ───────────────── */
 
+/* Qué tanque hay en cada casilla. Con 46 tanques, recorrer la lista entera
+   en cada paso de cada línea de tiro se notaba; esto lo deja en una consulta. */
+function refrescarOcupacion() {
+  const oc = juego.ocupacion;
+  oc.fill(null);
+  for (const t of juego.tanques) if (t.vivo) oc[t.y * mundo.ancho + t.x] = t;
+}
+
+function tanqueEn(x, y) {
+  return enMapa(x, y) ? juego.ocupacion[y * mundo.ancho + x] : null;
+}
+
 function ocupada(x, y, salvo) {
-  return juego.tanques.some((t) => t.vivo && t !== salvo && t.x === x && t.y === y);
+  const t = tanqueEn(x, y);
+  return !!t && t !== salvo;
 }
 
 function mover(t, dir) {
@@ -708,7 +787,9 @@ function mover(t, dir) {
   const d = DIRS[dir];
   const nx = t.x + d.dx, ny = t.y + d.dy;
   if (!pasaTanque(nx, ny) || ocupada(nx, ny, t)) return false;
+  juego.ocupacion[t.y * mundo.ancho + t.x] = null;
   t.x = nx; t.y = ny;
+  juego.ocupacion[ny * mundo.ancho + nx] = t;
   t.moviendo = true;
   t.cuadro ^= 1;
   return true;
@@ -722,36 +803,79 @@ function mirar(x, y, dir, salvo) {
   for (let paso = 1; paso <= ALCANCE; paso++) {
     const cx = x + d.dx * paso, cy = y + d.dy * paso;
     if (!enMapa(cx, cy)) return { que: "borde", paso };
-    const t = juego.tanques.find((o) => o.vivo && o !== salvo && o.x === cx && o.y === cy);
-    if (t) return { que: "tanque", tanque: t, paso };
+    const t = tanqueEn(cx, cy);
+    if (t && t !== salvo) return { que: "tanque", tanque: t, paso };
     if (tipoEn(cx, cy) === "borde") return { que: "borde", paso };
     if (!pasaBala(cx, cy)) return { que: "muro", paso };
   }
   return { que: "nada", paso: ALCANCE };
 }
 
+/* Mete un enemigo nuevo en el mapa, lejos de ti y en terreno alcanzable. */
+function soltarEnemigo(jx, jy) {
+  for (let intento = 0; intento < 3000; intento++) {
+    const margen = intento < 2000 ? 16 : 8;
+    const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
+    if (!juego.alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
+    if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
+    if (x === jx || y === jy) continue;
+    let apinado = false;
+    for (const o of juego.tanques) {
+      if (o.jugador || !o.vivo) continue;
+      if (Math.abs(o.x - x) + Math.abs(o.y - y) < 4) { apinado = true; break; }
+    }
+    if (apinado) continue;
+
+    const enemigo = nuevoTanque(x, y, false);
+    juego.tanques.push(enemigo);
+    juego.ocupacion[y * mundo.ancho + x] = enemigo;
+    return true;
+  }
+  return false;
+}
+
 function pensarEnemigo(t, dt) {
+  /* ¿lleva rato sin moverse de la casilla? */
+  if (t.x === t.ultimaX && t.y === t.ultimaY) t.quieto += dt;
+  else { t.quieto = 0; t.ultimaX = t.x; t.ultimaY = t.y; }
+
   t.pensar -= dt;
   if (t.pensar > 0) return;
   t.pensar = 0.25;
+
+  /* Atascado contra algo: se abre paso a tiros en la dirección en la que
+     intenta ir. Sin esto, los últimos rezagados no llegaban nunca. */
+  if (t.quieto > 2 && t.objetivo) {
+    const dx = t.objetivo.x - t.x, dy = t.objetivo.y - t.y;
+    t.dir = Math.abs(dx) > Math.abs(dy)
+      ? (dx > 0 ? "derecha" : "izquierda")
+      : (dy > 0 ? "abajo" : "arriba");
+    if (mirar(t.x, t.y, t.dir, t).que !== "borde" && disparar(t)) { t.quieto = 0; return; }
+    if (mover(t, ["arriba","abajo","izquierda","derecha"][entero(4)])) { t.quieto = 0; return; }
+  }
 
   /* ¿Hay algún otro tanque cerca? Le dispara a quien sea, incluso a los suyos.
      Si lleva muchos tiros contra el mismo sin tumbarlo, lo deja en paz un rato
      y se va a por el más cercano: así no se obsesiona con uno inalcanzable. */
   if (t.harto && juego.tiempo > t.hartoHasta) t.harto = null;
 
+  const radio = juego.enemigosVivos > 8
+    ? PERSECUCION
+    : PERSECUCION + (9 - juego.enemigosVivos) * PERSECUCION_EXTRA * 6;
+
   let cerca = null, mejor = Infinity;
   for (const o of juego.tanques) {
     if (!o.vivo || o === t || o === t.harto) continue;
     const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
-    if (dist < mejor && dist <= PERSECUCION) { mejor = dist; cerca = o; }
+    if (dist > radio) continue;
+    if (dist < mejor) { mejor = dist; cerca = o; }
   }
   if (!cerca && t.harto) {            // si no queda nadie más, vuelve a él
     t.harto = null;
     for (const o of juego.tanques) {
       if (!o.vivo || o === t) continue;
       const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
-      if (dist < mejor && dist <= PERSECUCION) { mejor = dist; cerca = o; }
+      if (dist < mejor && dist <= radio) { mejor = dist; cerca = o; }
     }
   }
 
@@ -760,7 +884,8 @@ function pensarEnemigo(t, dt) {
   /* Si está alineado con alguien, le apunta. Nunca gasta tiros contra el borde. */
   for (const dir of Object.keys(DIRS)) {
     const vista = mirar(t.x, t.y, dir, t);
-    if (vista.que === "tanque" && vista.paso <= VISTA_ENEMIGO) {
+    if (vista.que === "tanque" && vista.paso <= VISTA_ENEMIGO &&
+        (vista.tanque === t.objetivo || vista.tanque.jugador)) {
       t.dir = dir;
       if (disparar(t)) {
         if (vista.tanque === t.objetivo && ++t.tirosSeguidos >= t.tope) {
@@ -806,6 +931,18 @@ let ultimoCuadro = 0;
 
 function actualizar(dt) {
   juego.tiempo += dt;
+  refrescarOcupacion();
+  juego.enemigosVivos = 0;
+  for (const t of juego.tanques) if (!t.jugador && t.vivo) juego.enemigosVivos++;
+
+  /* van entrando de relevo conforme caen */
+  if (juego.porSalir > 0 && juego.enemigosVivos < A_LA_VEZ) {
+    juego.relevo -= dt;
+    if (juego.relevo <= 0) {
+      juego.relevo = 1.2;
+      if (soltarEnemigo(juego.jugador.x, juego.jugador.y)) juego.porSalir--;
+    }
+  }
 
   /* --- jugador --- */
   const j = juego.jugador;
@@ -952,7 +1089,10 @@ function dibujar() {
   const x0 = Math.floor(camX / paso) - 1, y0 = Math.floor(camY / paso) - 1;
   for (let y = y0; y < y0 + altoVista + 1; y++) {
     for (let x = x0; x < x0 + anchoVista + 1; x++) {
-      if (!enMapa(x, y)) continue;
+      if (!enMapa(x, y)) {
+        poner(ATLAS.relleno, spriteMar(x, y), aX(x), aY(y));   // el mar de alrededor
+        continue;
+      }
       const i = y * mundo.ancho + x;
       poner(ATLAS.relleno, mundo.sprite[i], aX(x), aY(y), mundo.voltear[i]);
     }
@@ -988,7 +1128,7 @@ function pintarMarcador() {
   const j = juego.jugador;
   elVida.textContent = "♥".repeat(Math.max(0, j.vida)) + "·".repeat(VIDA_MAX - Math.max(0, j.vida));
   elMunicion.textContent = j.municion + "/" + municionMax(j);
-  elEnemigos.textContent = juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+  elEnemigos.textContent = juego.tanques.filter((t) => !t.jugador && t.vivo).length + juego.porSalir;
 
   const activos = [];
   if (j.superCohete) activos.push("SUPERCOHETE");
@@ -1018,7 +1158,7 @@ function terminar(resultado) {
   if (resultado === "ganaste") {
     mostrarCapa("¡Ganaste!", "Acabaste con los " + ENEMIGOS + " tanques enemigos.", "Jugar otra vez");
   } else {
-    const caidos = ENEMIGOS - juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+    const caidos = ENEMIGOS - juego.tanques.filter((t) => !t.jugador && t.vivo).length - juego.porSalir;
     mostrarCapa("Perdiste", "Tu tanque fue destruido. Te llevaste " + caidos + " por delante.", "Intentar otra vez");
   }
 }
@@ -1026,7 +1166,7 @@ function terminar(resultado) {
 function abrirMenu() {
   if (juego.estado !== "jugando") return;
   juego.estado = "menu";
-  const quedan = juego.tanques.filter((t) => !t.jugador && t.vivo).length;
+  const quedan = juego.tanques.filter((t) => !t.jugador && t.vivo).length + juego.porSalir;
   mostrarCapa("Pausa", "Quedan " + quedan + " de " + ENEMIGOS + " tanques enemigos.", "Seguir jugando");
 }
 
@@ -1049,12 +1189,14 @@ function empezar(numeroEnemigos) {
   if (typeof MAPA_FILAS !== "undefined") cargarMapa();
   else generarMapa(TAMANO_MAPA, TAMANO_MAPA);
 
+  juego.ocupacion = new Array(mundo.ancho * mundo.alto).fill(null);
   juego.tanques = [];
   juego.cohetes = [];
   juego.explosiones = [];
   juego.poderes = [];
   juego.siguientePoder = 6;
   juego.tiempo = 0;
+  juego.enemigosVivos = 0;
 
   /* El jugador arranca lo más cerca posible del centro, pero en un hueco que
      ya exista: abrirlo a la fuerza mordía la montaña o el lago que hubiera
@@ -1072,16 +1214,37 @@ function empezar(numeroEnemigos) {
   }
   juego.jugador = nuevoTanque(jx, jy, true);
   juego.tanques.push(juego.jugador);
+  juego.ocupacion[jy * mundo.ancho + jx] = juego.jugador;
 
-  const cuantos = numeroEnemigos === undefined ? ENEMIGOS : numeroEnemigos;
+  const total = numeroEnemigos === undefined ? ENEMIGOS : numeroEnemigos;
+  const cuantos = Math.min(total, A_LA_VEZ);
+  juego.porSalir = total - cuantos;
+  juego.relevo = 1.2;
   const alcanzable = alcanzablesDesde(jx, jy);
+  juego.alcanzable = alcanzable;
   let puestos = 0, intentos = 0;
-  while (puestos < cuantos && intentos++ < 4000) {
+  /* Con el mapa lleno puede no haber sitio lejano para todos, así que la
+     distancia mínima se va aflojando en vez de dejar enemigos sin salir. */
+  let margen = 14, separacion = 4;
+  while (puestos < cuantos && intentos++ < 40000) {
+    if (intentos % 8000 === 0) {
+      if (margen > 5) margen -= 3;
+      if (separacion > 2) separacion--;
+    }
     const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
     if (!alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
-    if (Math.abs(x - jx) + Math.abs(y - jy) < 14) continue;
+    if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
     if (x === jx || y === jy) continue;   // nunca en linea de tiro directa
-    juego.tanques.push(nuevoTanque(x, y, false));
+    /* ni pegados entre ellos: amontonados se destrozan nada más empezar */
+    let apinado = false;
+    for (const o of juego.tanques) {
+      if (o.jugador) continue;
+      if (Math.abs(o.x - x) + Math.abs(o.y - y) < separacion) { apinado = true; break; }
+    }
+    if (apinado) continue;
+    const enemigo = nuevoTanque(x, y, false);
+    juego.tanques.push(enemigo);
+    juego.ocupacion[y * mundo.ancho + x] = enemigo;
     puestos++;
   }
 
