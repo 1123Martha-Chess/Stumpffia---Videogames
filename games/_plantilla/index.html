@@ -4,23 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nombre del juego — Stumpffia</title>
-<meta name="theme-color" content="#0e2a1b">
-<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
 <style>
+  @import url("/assets/css/fuente.css");
   /* Cada juego trae su CSS dentro para que sea un solo archivo que cargue de golpe. */
-  :root { --bg:#0b1710; --text:#e8f5ec; --muted:#9dbdab; --frog:#5ac85a; --line:#27503a; }
+  :root { --bg:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --verde:#17803c; --linea:#d2d2d7; }
   * { box-sizing: border-box; }
   body {
     margin:0; min-height:100dvh; background:var(--bg); color:var(--text);
-    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font:17px/1.5 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
     display:flex; flex-direction:column; align-items:center;
     touch-action:manipulation; -webkit-user-select:none; user-select:none;
   }
-  header { width:100%; display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
+  header { width:100%; display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--linea); }
   header a { color:var(--muted); text-decoration:none; font-weight:700; }
   header h1 { font-size:1rem; margin:0; }
-  .marcador { margin-left:auto; color:var(--frog); font-weight:800; font-variant-numeric:tabular-nums; }
+  .marcador { margin-left:auto; color:var(--verde); font-weight:800; font-variant-numeric:tabular-nums; }
   canvas { display:block; width:100%; max-width:480px; height:auto; touch-action:none; }
   footer { color:var(--muted); font-size:.8rem; padding:14px; text-align:center; }
 </style>
@@ -70,11 +71,11 @@
   function dibujar() {
     var w = cv.clientWidth, h = cv.clientHeight;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#5ac85a";
+    ctx.fillStyle = "#17803c";
     ctx.beginPath();
     ctx.arc(w / 2, h / 2, Math.min(w, h) * 0.12, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#9dbdab";
+    ctx.fillStyle = "#6e6e73";
     ctx.font = "16px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("récord: " + record, w / 2, h / 2 + 70);

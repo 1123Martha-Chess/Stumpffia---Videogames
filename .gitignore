@@ -5,3 +5,8 @@ Thumbs.db
 .vscode/
 .idea/
 descargas/*.apk
+
+# herramientas de desarrollo, no forman parte del sitio publicado
+.claude/
+.agents/
+skills-lock.json

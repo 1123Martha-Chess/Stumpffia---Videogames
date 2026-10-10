@@ -9,7 +9,7 @@
   function tarjeta(j) {
     var disponible = !j.pronto;
     var el = document.createElement(disponible ? "a" : "div");
-    el.className = "game-card" + (disponible ? "" : " game-card--pronto");
+    el.className = "tarjeta" + (disponible ? "" : " tarjeta-pronto");
 
     if (disponible) {
       el.href = "/games/" + j.id + "/";
@@ -17,13 +17,13 @@
       el.setAttribute("aria-disabled", "true");
     }
 
-    var art = document.createElement("div");
-    art.className = "game-art";
-    art.setAttribute("aria-hidden", "true");
-    art.textContent = j.emoji || "🐸";
+    var arte = document.createElement("div");
+    arte.className = "tarjeta-arte";
+    arte.setAttribute("aria-hidden", "true");
+    arte.textContent = j.emoji || "🐸";
 
-    var body = document.createElement("div");
-    body.className = "game-body";
+    var cuerpo = document.createElement("div");
+    cuerpo.className = "tarjeta-cuerpo";
 
     var h3 = document.createElement("h3");
     h3.textContent = j.nombre;
@@ -31,26 +31,33 @@
     var p = document.createElement("p");
     p.textContent = j.desc;
 
-    var meta = document.createElement("div");
-    meta.className = "game-meta";
+    var datosFila = document.createElement("div");
+    datosFila.className = "tarjeta-datos";
 
     if (j.peso) {
       var peso = document.createElement("span");
-      peso.className = "tag tag--peso";
+      peso.className = "dato-peso";
       peso.textContent = j.peso;
-      meta.appendChild(peso);
+      datosFila.appendChild(peso);
+
+      var sep = document.createElement("span");
+      sep.className = "separador";
+      sep.setAttribute("aria-hidden", "true");
+      sep.textContent = "·";
+      datosFila.appendChild(sep);
     }
 
+    /* El estado va en texto, no solo en el color del emoji. */
     var estado = document.createElement("span");
-    estado.className = "tag" + (disponible ? "" : " tag--pronto");
-    estado.textContent = disponible ? "Jugar ahora" : "Próximamente";
-    meta.appendChild(estado);
+    estado.className = "dato-estado";
+    estado.textContent = disponible ? "Jugar" : "Próximamente";
+    datosFila.appendChild(estado);
 
-    body.appendChild(h3);
-    body.appendChild(p);
-    body.appendChild(meta);
-    el.appendChild(art);
-    el.appendChild(body);
+    cuerpo.appendChild(h3);
+    cuerpo.appendChild(p);
+    cuerpo.appendChild(datosFila);
+    el.appendChild(arte);
+    el.appendChild(cuerpo);
     return el;
   }
 
@@ -94,7 +101,7 @@
       nota.innerHTML = "";
       var a = document.createElement("a");
       a.href = datos.apk.url;
-      a.className = "btn btn-donar";
+      a.className = "boton boton-verde";
       a.textContent = "Descargar APK" +
         (datos.apk.version ? " v" + datos.apk.version : "") +
         (datos.apk.peso ? " · " + datos.apk.peso : "");

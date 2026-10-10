@@ -17,9 +17,12 @@ offline.html               pantalla cuando no hay internet
 manifest.webmanifest       datos del PWA
 sw.js                      service worker (caché para jugar sin internet)
 assets/css/styles.css      estilos de la portada
+assets/css/fuente.css      los @font-face, compartidos con los juegos
+assets/fonts/              Nunito variable (SIL OFL 1.1) alojada aquí mismo
 assets/js/games.js         CATÁLOGO: aquí se agregan juegos y enlaces de donación
 assets/js/app.js           arma las tarjetas, el modal y el botón de instalar
-assets/img/                íconos (SVG + PNG) e imagen para compartir
+assets/img/                logo, íconos e imagen para compartir
+assets/img/origen/         el logo original tal como lo entregaste
 games/<id>/index.html      un juego = una carpeta = un archivo
 games/_plantilla/          punto de partida para un juego nuevo
 _headers                   cabeceras de seguridad y caché (Cloudflare Pages)
@@ -61,6 +64,14 @@ de red, y guarda lo que necesite en `localStorage` con la llave `stumpffia:<id>`
    los *nameservers* del registrador a los que Cloudflare te indique.
 
 Cada `git push` a la rama principal vuelve a publicar el sitio solo.
+
+## Tipografía y licencias
+
+La página usa **Nunito** (variable, pesos 400–900), alojada en el propio sitio: no se pide nada a
+Google Fonts ni a ningún otro servidor. Está bajo la SIL Open Font License 1.1, que permite el uso
+comercial y la redistribución; el texto completo está en .
+
+El código del sitio es MIT (ver ). El logo de la rana es tuyo y no entra en esa licencia.
 
 ## Privacidad
 
