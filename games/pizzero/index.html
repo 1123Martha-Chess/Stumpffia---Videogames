@@ -9,58 +9,15 @@
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
 <style>
   :root {
     --marino:#0B1A4A; --tarjeta:#13295E; --claro:#7EC8F2;
     --apagado:#8FB4D8; --borde:rgba(126,200,242,.18);
   }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { height:100%; }
-  body {
-    margin:0; background:var(--marino); color:var(--claro);
-    font:13px/1.5 "Silkscreen",ui-monospace,monospace;
-    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
-  }
-  canvas { position:fixed; inset:0; display:block; image-rendering:pixelated; touch-action:none; }
 
-  #hud {
-    position:fixed; top:0; left:0; right:0; z-index:3;
-    display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap;
-    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
-    pointer-events:none;
-  }
-  .ficha {
-    display:flex; flex-direction:column; align-items:center; gap:1px;
-    padding:5px 11px; border:2px solid var(--claro);
-    background:var(--marino);
-    font-variant-numeric:tabular-nums;
-  }
-  .ficha span { font-size:8px; letter-spacing:.08em; color:var(--apagado); }
-  .ficha b { font-size:14px; color:var(--claro); }
-  .ficha.urgente { animation:latir .7s infinite; }
-  @keyframes latir { 50% { background:var(--claro); color:var(--marino); } }
-  #pizzas { display:flex; gap:8px; margin-left:auto; }
-  @media (prefers-reduced-motion: reduce) { .ficha.urgente { animation:none; } }
 
-  #mando { display:none; }
-  body.tactil #mando {
-    display:flex; position:fixed; inset:auto 0 0 0; z-index:4;
-    padding:0 18px calc(18px + env(safe-area-inset-bottom)); justify-content:center;
-  }
-  .cruz { display:grid; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(3,54px); }
-  .cruz button { grid-area:var(--pos); }
-  #mando button {
-    border:2px solid var(--claro); background:rgba(11,26,74,.55); color:var(--claro);
-    font:inherit; font-size:20px; font-weight:700; cursor:pointer;
-  }
-  #mando button:active { background:var(--claro); color:var(--marino); }
 
-  #capa {
-    position:fixed; inset:0; z-index:10;
-    display:none; align-items:center; justify-content:center; padding:20px;
-    background:rgba(11,26,74,.86);
-  }
-  #capa.visible { display:flex; }
   .tarjeta {
     width:min(430px,100%); padding:28px 26px 22px; text-align:center;
     background:var(--tarjeta); border:3px solid var(--claro);
@@ -87,31 +44,41 @@
 </head>
 <body>
 
-<div id="hud">
-  <div class="ficha"><span>ENTREGAS</span><b id="entregas">0</b></div>
-  <div class="ficha" id="ficha-despido"><span>SIN ENTREGAR</span><b id="despido">5:00</b></div>
-  <div class="ficha"><span>REPARTO</span><b id="vehiculo">A pie</b></div>
-  <div id="pizzas"></div>
-</div>
-
-<canvas id="lienzo"></canvas>
-
-<div id="mando" aria-hidden="true">
-  <div class="cruz">
-    <button data-dir="arriba"    style="--pos:1/2">▲</button>
-    <button data-dir="izquierda" style="--pos:2/1">◀</button>
-    <button data-dir="derecha"   style="--pos:2/3">▶</button>
-    <button data-dir="abajo"     style="--pos:3/2">▼</button>
+<div class="consola">
+  <div class="pantalla">
+    <canvas id="lienzo"></canvas>
+    <div class="capa" id="capa">
+      <div class="tarjeta">
+        <h1 id="capa-titulo">Pizzero</h1>
+        <p id="capa-texto"></p>
+        <button id="capa-boton">Empezar el turno</button>
+        <div class="reglas" id="capa-reglas"></div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div id="capa">
-  <div class="tarjeta">
-    <h1 id="capa-titulo">Pizzero</h1>
-    <p id="capa-texto"></p>
-    <button id="capa-boton">Empezar el turno</button>
-    <div class="reglas" id="capa-reglas"></div>
-    <a href="/">Volver a Stumpffia</a>
+  <div class="datos" id="hud">
+    <div class="ficha"><span>ENTREGAS</span><b id="entregas">0</b></div>
+    <div class="ficha" id="ficha-despido"><span>SIN ENTREGAR</span><b id="despido">5:00</b></div>
+    <div class="ficha"><span>REPARTO</span><b id="vehiculo">A pie</b></div>
+    <div id="pizzas" style="display:contents"></div>
+  </div>
+
+  <div class="botonera">
+    <button id="btn-pausa">PAUSA</button>
+    <a href="/">SALIR</a>
+  </div>
+
+  <div class="mando" id="mando">
+    <div class="cruz">
+      <button data-dir="arriba"    style="--pos:1/2">▲</button>
+      <button data-dir="izquierda" style="--pos:2/1">◀</button>
+      <button data-dir="derecha"   style="--pos:2/3">▶</button>
+      <button data-dir="abajo"     style="--pos:3/2">▼</button>
+    </div>
+    <div class="acciones">
+      <button class="accion chico" id="btn-pausa2">II</button>
+    </div>
   </div>
 </div>
 
@@ -704,12 +671,13 @@ const ctx = lienzo.getContext("2d", { alpha: false });
 let escala = 3;
 
 function ajustar() {
-  lienzo.width = window.innerWidth;
-  lienzo.height = window.innerHeight;
-  escala = Math.max(2, Math.min(4, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 190)));
+  const ancho = lienzo.clientWidth || 320, alto = lienzo.clientHeight || 240;
+  lienzo.width = ancho; lienzo.height = alto;
+  escala = Math.max(2, Math.min(4, Math.floor(Math.min(ancho, alto) / 150)));
   ctx.imageSmoothingEnabled = false;
 }
 window.addEventListener("resize", ajustar);
+if (window.ResizeObserver) new ResizeObserver(ajustar).observe(lienzo);
 
 function reloj(segundos) {
   const s = Math.max(0, Math.ceil(segundos));
@@ -819,8 +787,9 @@ function dibujar() {
     ponerSprite(nombre, aX(v.x - 0.5), aY(v.y - 0.5), 1);
   }
 
-  /* el chef espera en la puerta de la pizzería, perfilado para que se vea */
-  if (ciudad.pizzeria) {
+  /* El chef solo está cuando tiene pizza que darte: en cuanto le recoges
+     la última se mete dentro, y vuelve a salir al entregar una. */
+  if (ciudad.pizzeria && juego.pizzas.length < fase().capacidad) {
     ponerSprite("con_pizza_abajo_quieto",
                 aX(ciudad.pizzeria.x), aY(ciudad.pizzeria.y), 1);
   }
@@ -936,6 +905,17 @@ function botonCapa() {
 }
 capaBoton.addEventListener("click", botonCapa);
 
+function alternarPausa() {
+  if (juego.estado === "jugando") {
+    juego.estado = "pausa";
+    mostrarCapa("Pausa", "", "Seguir repartiendo", null);
+  } else if (juego.estado === "pausa") botonCapa();
+}
+for (const id of ["btn-pausa", "btn-pausa2"]) {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", alternarPausa);
+}
+
 /* ───────────────── Arranque ───────────────── */
 
 function empezar() {
@@ -976,7 +956,9 @@ function soltar(code) {
 
 addEventListener("keydown", function (e) {
   if (e.code === "Space" || e.code === "Enter") {
-    if (juego.estado !== "jugando") { e.preventDefault(); botonCapa(); }
+    e.preventDefault();
+    alternarPausa();
+    if (juego.estado !== "jugando" && juego.estado !== "pausa") botonCapa();
     return;
   }
   if (DIRECCION_TECLA[e.code]) { e.preventDefault(); if (!e.repeat) pulsar(e.code); }
@@ -987,7 +969,6 @@ addEventListener("blur", function () {
   ordenDirecciones.length = 0;
 });
 
-if (matchMedia("(hover: none)").matches) document.body.classList.add("tactil");
 const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
 for (const boton of document.querySelectorAll("#mando [data-dir]")) {
   const code = mapaTactil[boton.dataset.dir];

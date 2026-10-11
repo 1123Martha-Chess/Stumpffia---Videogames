@@ -9,7 +9,11 @@
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
 <style>
+  /* la ficha de poder solo sale cuando hay uno activo */
+  #poder { display:none; }
+  #poder.visible { display:flex; }
   :root {
     --marino:#0B1A4A;          /* fondo */
     --tarjeta:#13295E;         /* superficie de la tarjeta */
@@ -17,59 +21,12 @@
     --apagado:#6E96C4;         /* 4.5:1 sobre la tarjeta */
     --borde:rgba(126,200,242,.18);
   }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { height:100%; }
-  body {
-    margin:0; background:var(--marino); color:var(--claro);
-    font:15px/1.4 "Silkscreen",ui-monospace,monospace;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
-  }
-  canvas { display:block; image-rendering:pixelated; touch-action:none; }
 
   /* Marcador: vidas, munición y poder activo */
-  #hud {
-    position:fixed; top:0; left:0; right:0; z-index:3;
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
-    pointer-events:none;
-  }
-  .ficha {
-    display:flex; align-items:baseline; gap:7px;
-    padding:6px 12px; border-radius:13px;
-    background:rgba(19,41,94,.82); border:1px solid var(--borde);
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    font-variant-numeric:tabular-nums;
-  }
-  .ficha span { font-size:8px; letter-spacing:.08em; color:var(--apagado); }
-  .ficha b { font-size:13px; color:var(--claro); }
-  #poder { margin-left:auto; opacity:0; transition:opacity .2s; }
-  #poder.visible { opacity:1; }
-  #poder b { font-size:12px; letter-spacing:.06em; }
 
   /* Mando táctil: solo aparece si el aparato tiene pantalla táctil */
-  #mando { display:none; }
-  body.tactil #mando {
-    display:block; position:fixed; inset:auto 0 0 0; z-index:4;
-    padding:0 18px calc(18px + env(safe-area-inset-bottom));
-    display:flex; align-items:flex-end; justify-content:space-between;
-  }
-  .cruz { display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); }
-  .cruz button { grid-area:var(--pos); }
-  #mando button {
-    border:2px solid var(--claro); background:rgba(11,26,74,.55); color:var(--claro);
-    border-radius:12px; font:inherit; font-size:20px; font-weight:700; cursor:pointer;
-  }
-  #mando button:active { background:var(--claro); color:var(--marino); }
-  #fuego { width:84px; height:84px; border-radius:50%; font-size:15px; }
 
   /* Pantallas de menú, victoria y derrota */
-  #capa {
-    position:fixed; inset:0; z-index:10;
-    display:none; align-items:center; justify-content:center; padding:20px;
-    background:rgba(11,26,74,.86);
-  }
-  #capa.visible { display:flex; }
 
   .tarjeta {
     width:min(420px,100%); padding:34px 30px 26px; text-align:center;
@@ -108,36 +65,45 @@
 </head>
 <body>
 
-<div id="hud">
-  <div class="ficha"><span>VIDA</span><b id="vida">♥♥♥</b></div>
-  <div class="ficha"><span>COHETES</span><b id="municion">5/5</b></div>
-  <div class="ficha"><span>ENEMIGOS</span><b id="enemigos">15</b></div>
-  <div class="ficha" id="poder"><b></b></div>
-</div>
-
-<canvas id="lienzo"></canvas>
-
-<div id="mando" aria-hidden="true">
-  <div class="cruz">
-    <button data-dir="arriba"    style="--pos:1/2">▲</button>
-    <button data-dir="izquierda" style="--pos:2/1">◀</button>
-    <button data-dir="derecha"   style="--pos:2/3">▶</button>
-    <button data-dir="abajo"     style="--pos:3/2">▼</button>
-  </div>
-  <button id="fuego">FUEGO</button>
-</div>
-
-<div id="capa">
-  <div class="tarjeta">
-    <h1 id="capa-titulo">Tanques</h1>
-    <p id="capa-texto"></p>
-    <button id="capa-boton">Jugar</button>
-    <div class="controles">
-      <div><span>Moverte</span><em><kbd>↑ ↓ ← →</kbd><kbd>W A S D</kbd></em></div>
-      <div><span>Disparar</span><kbd>O</kbd></div>
-      <div><span>Menú</span><kbd>Espacio</kbd></div>
+<div class="consola">
+  <div class="pantalla">
+    <canvas id="lienzo"></canvas>
+    <div class="capa" id="capa">
+      <div class="tarjeta">
+        <h1 id="capa-titulo">Tanques</h1>
+        <p id="capa-texto"></p>
+        <button id="capa-boton">Jugar</button>
+        <div class="controles">
+          <div><span>Moverte</span><em><kbd>↑ ↓ ← →</kbd><kbd>W A S D</kbd></em></div>
+          <div><span>Disparar</span><kbd>O</kbd></div>
+          <div><span>Menú</span><kbd>Espacio</kbd></div>
+        </div>
+      </div>
     </div>
-    <a href="/">Volver a Stumpffia</a>
+  </div>
+
+  <div class="datos" id="hud">
+    <div class="ficha"><span>VIDA</span><b id="vida">♥♥♥</b></div>
+    <div class="ficha"><span>COHETES</span><b id="municion">5/5</b></div>
+    <div class="ficha"><span>ENEMIGOS</span><b id="enemigos">45</b></div>
+    <div class="ficha" id="poder"><span>PODER</span><b></b></div>
+  </div>
+
+  <div class="botonera">
+    <button id="btn-pausa">PAUSA</button>
+    <a href="/">SALIR</a>
+  </div>
+
+  <div class="mando" id="mando">
+    <div class="cruz">
+      <button data-dir="arriba"    style="--pos:1/2">▲</button>
+      <button data-dir="izquierda" style="--pos:2/1">◀</button>
+      <button data-dir="derecha"   style="--pos:2/3">▶</button>
+      <button data-dir="abajo"     style="--pos:3/2">▼</button>
+    </div>
+    <div class="acciones">
+      <button class="accion" id="fuego">FUEGO</button>
+    </div>
   </div>
 </div>
 
@@ -1036,7 +1002,7 @@ const ctx = lienzo.getContext("2d", { alpha: false });
 let escala = 3, anchoVista = 0, altoVista = 0;
 
 function ajustarLienzo() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = lienzo.clientWidth || 320, h = lienzo.clientHeight || 240;
   escala = Math.max(2, Math.min(4, Math.floor(Math.min(w / (16 * TAM), h / (14 * TAM)))));
   anchoVista = Math.ceil(w / (TAM * escala)) + 2;
   altoVista = Math.ceil(h / (TAM * escala)) + 2;
@@ -1044,6 +1010,7 @@ function ajustarLienzo() {
   ctx.imageSmoothingEnabled = false;
 }
 window.addEventListener("resize", ajustarLienzo);
+if (window.ResizeObserver) new ResizeObserver(ajustarLienzo).observe(lienzo);
 
 function poner(atlas, nombre, x, y, voltear) {
   const n = indice[nombre];
@@ -1166,6 +1133,9 @@ function botonCapa() {
   }
 }
 capaBoton.addEventListener("click", botonCapa);
+document.getElementById("btn-pausa").addEventListener("click", function () {
+  if (juego.estado === "jugando") abrirMenu(); else botonCapa();
+});
 
 /* ───────────────── Arranque ───────────────── */
 
@@ -1280,7 +1250,6 @@ addEventListener("blur", () => {
 });
 
 /* Mando táctil */
-if (matchMedia("(hover: none)").matches) document.body.classList.add("tactil");
 const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
 for (const boton of document.querySelectorAll("#mando [data-dir]")) {
   const code = mapaTactil[boton.dataset.dir];

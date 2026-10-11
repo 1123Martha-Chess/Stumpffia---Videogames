@@ -9,6 +9,7 @@
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
 <style>
   :root {
     --marino:#0B1A4A;
@@ -17,44 +18,12 @@
     --apagado:#6E96C4;
     --borde:rgba(126,200,242,.18);
   }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { height:100%; }
-  body {
-    margin:0; background:var(--claro); color:var(--claro);
-    font:15px/1.4 "Silkscreen",ui-monospace,monospace;
-    overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
-  }
-  /* El césped llena la pantalla, así que el lienzo va de borde a borde. */
-  canvas {
-    position:fixed; inset:0; display:block;
-    image-rendering:pixelated; touch-action:none; cursor:pointer;
-  }
 
-  #hud {
-    position:fixed; top:0; left:0; right:0; z-index:3;
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));
-  }
-  .ficha {
-    display:flex; align-items:baseline; gap:7px;
-    padding:6px 12px; border:2px solid var(--claro);
-    background:var(--marino);
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    font-variant-numeric:tabular-nums;
-  }
   /* Sobre césped claro la ficha se aclara, así que la etiqueta sube de tono:
      con #6E96C4 quedaba en 3.0:1 y hace falta 4.5:1. Ahora da 5.7:1. */
-  .ficha span { font-size:8px; letter-spacing:.08em; color:var(--apagado); }
-  .ficha b { font-size:13px; color:var(--claro); }
   #aviso { margin-left:auto; }
   #sonido { pointer-events:auto; cursor:pointer; font:inherit; }
 
-  #capa {
-    position:fixed; inset:0; z-index:10;
-    display:none; align-items:center; justify-content:center; padding:20px;
-    background:rgba(11,26,74,.86);
-  }
-  #capa.visible { display:flex; }
   .tarjeta {
     width:min(420px,100%); padding:34px 30px 26px; text-align:center;
     background:var(--tarjeta); border:3px solid var(--claro);
@@ -86,24 +55,33 @@
 </head>
 <body>
 
-<div id="hud">
-  <div class="ficha"><span>RONDA</span><b id="ronda">1</b></div>
-  <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
-  <div class="ficha" id="aviso"><b>Mira bien</b></div>
-  <div class="ficha" id="sonido" role="button" tabindex="0"><b>♪</b></div>
-</div>
-
-<canvas id="lienzo"></canvas>
-
-<div id="capa">
-  <div class="tarjeta">
-    <h1 id="capa-titulo">Memoria del Charco</h1>
-    <p id="capa-texto"></p>
-    <button id="capa-boton">Jugar</button>
-    <div class="marcas">
-      <div><span>Tu récord</span><b id="capa-record">0</b></div>
+<div class="consola">
+  <div class="pantalla">
+    <canvas id="lienzo"></canvas>
+    <div class="capa" id="capa">
+      <div class="tarjeta">
+        <h1 id="capa-titulo">Memoria del Charco</h1>
+        <p id="capa-texto"></p>
+        <button id="capa-boton">Jugar</button>
+        <div class="marcas">
+          <div><span>Toca las ranas</span><b>en el orden que croaron</b></div>
+          <div><span>Cada ronda</span><b>una rana más</b></div>
+          <div><span>Tu récord</span><b id="capa-record">0</b></div>
+        </div>
+      </div>
     </div>
-    <a href="/">Volver a Stumpffia</a>
+  </div>
+
+  <div class="datos" id="hud">
+    <div class="ficha"><span>RONDA</span><b id="ronda">1</b></div>
+    <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
+    <div class="ficha" id="aviso"><span>TURNO</span><b>Mira bien</b></div>
+    <div class="ficha" id="sonido" role="button" tabindex="0"><span>SONIDO</span><b>SI</b></div>
+  </div>
+
+  <div class="botonera">
+    <button id="btn-pausa">REINICIAR</button>
+    <a href="/">SALIR</a>
   </div>
 </div>
 
@@ -352,7 +330,7 @@ const ctx = lienzo.getContext("2d", { alpha: false });
 let escala = 2, desplazX = 0, desplazY = 0;
 
 function ajustar() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = lienzo.clientWidth || 320, h = lienzo.clientHeight || 240;
   lienzo.width = w;
   lienzo.height = h;
   ctx.imageSmoothingEnabled = false;
@@ -377,6 +355,7 @@ function ajustar() {
   desplazY = Math.round(h / 2 - (LAGO.y0 + LAGO.alto / 2) * paso);
 }
 window.addEventListener("resize", ajustar);
+if (window.ResizeObserver) new ResizeObserver(ajustar).observe(lienzo);
 
 let reloj = 0;
 
@@ -430,7 +409,7 @@ function pintarMarcador() {
   elRonda.textContent = juego.ronda.toLocaleString("es");
   elRecord.textContent = juego.record.toLocaleString("es");
 }
-function avisar(texto) { elAviso.firstElementChild.textContent = texto; }
+function avisar(texto) { elAviso.lastElementChild.textContent = texto; }
 
 /* ───────────────── Pantallas ───────────────── */
 
@@ -460,6 +439,7 @@ function empezar() {
   ajustar();
 }
 capaBoton.addEventListener("click", empezar);
+document.getElementById("btn-pausa").addEventListener("click", empezar);
 
 /* ───────────────── Controles ───────────────── */
 
@@ -498,7 +478,7 @@ addEventListener("keydown", function (e) {
 const botonSonido = document.getElementById("sonido");
 function alternarSonido() {
   sonando = !sonando;
-  botonSonido.firstElementChild.textContent = sonando ? "♪" : "♪̸";
+  botonSonido.lastElementChild.textContent = sonando ? "SI" : "NO";
   botonSonido.style.opacity = sonando ? "1" : ".5";
 }
 botonSonido.addEventListener("click", alternarSonido);
