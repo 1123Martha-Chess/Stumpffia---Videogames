@@ -19,7 +19,7 @@ window.STUMPFFIA = {
       nombre: "Pizzero",
       emoji: "🍕",
       desc: "Reparte pizzas por una ciudad que crece contigo. Primero a pie, luego en moto, luego en auto.",
-      peso: "11 KB",
+      peso: "15 KB",
       pronto: false
     },
     {
