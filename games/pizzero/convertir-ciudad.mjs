@@ -1,13 +1,17 @@
-/* Convierte sprites/mapa_gigante.png en las piezas de ciudad del juego.
+/* Descompone sprites/mapa_gigante.png en piezas sueltas de ciudad.
  *
- * El dibujo son 5x4 manzanas separadas por calles de 2 casillas. Cada
- * "unidad" de 24x24 casillas lleva su calle arriba y a la izquierda más la
- * manzana de 22x22, así que la ciudad se construye repitiendo unidades.
+ * Antes se copiaban manzanas enteras de 22x22 tal cual. Ahora las manzanas
+ * son de cualquier tamaño, así que hace falta el material por separado:
+ * banqueta, asfalto, pasto, árboles, cerca, casas y la pizzería. Todo sale
+ * del dibujo, nada está inventado.
  *
- * Saca tres cosas:
- *   - el juego de casillas distintas que aparecen en el dibujo
- *   - las 20 unidades, como índices a esas casillas
- *   - dónde está la puerta de cada casa, para poder entregar ahí
+ * El dibujo tiene 5x4 manzanas de 22x22 casillas separadas por calzada de 2,
+ * y dentro de cada manzana:
+ *     filas  0- 1  banqueta (anillo)
+ *     filas  2- 7  pasto con árboles y arbustos
+ *     filas  8- 9  cerca
+ *     filas 10-15  dos casas, en las columnas 2-7 y 10-15
+ *     filas 16-19  patio delantero de cada casa
  *
  * Uso:  node games/pizzero/convertir-ciudad.mjs
  */
@@ -23,10 +27,8 @@ const DESTINO = path.join(AQUI, "index.html");
 const INICIO = "/* CIUDAD-INICIO */";
 const FIN = "/* CIUDAD-FIN */";
 
-const TAM = 16;        // lado de una casilla
-const CALLE = 2;       // ancho de la calzada, en casillas
-const MANZANA = 22;    // lado de una manzana, en casillas
-const UNIDAD = CALLE + MANZANA;
+const TAM = 16, CALZADA = 2, MANZANA = 22, UNIDAD = CALZADA + MANZANA;
+const BANQUETA_DIBUJO = 2;        // lo que mide el anillo en el dibujo
 
 /* ───────── leer el PNG ───────── */
 
@@ -73,142 +75,213 @@ for (let i = 0; i < img.w * img.h; i++) {
   claro[i] = l > 110 ? 1 : 0;
 }
 
-const anchoCasillas = Math.floor(img.w / TAM), altoCasillas = Math.floor(img.h / TAM);
-const columnas = Math.round((anchoCasillas - CALLE) / UNIDAD);
-const filas = Math.round((altoCasillas - CALLE) / UNIDAD);
-console.log(`dibujo: ${img.w}x${img.h} px = ${anchoCasillas}x${altoCasillas} casillas`);
-console.log(`unidades: ${columnas}x${filas} de ${UNIDAD}x${UNIDAD} casillas`);
+const columnas = Math.round((Math.floor(img.w / TAM) - CALZADA) / UNIDAD);
+const filas = Math.round((Math.floor(img.h / TAM) - CALZADA) / UNIDAD);
+console.log(`dibujo: ${img.w}x${img.h} px · ${columnas}x${filas} manzanas de ${MANZANA}x${MANZANA}`);
 
-/* ───────── casillas distintas ───────── */
+/* ───────── casillas ───────── */
 
-const casillas = [];           // cada una, 32 bytes de bits
+const piezas = [];               // 32 bytes cada una
 const porFirma = new Map();
 
-function casillaEn(tx, ty) {
-  const bits = Buffer.alloc(32);
+function bitsDe(tx, ty) {
+  const b = Buffer.alloc(32);
   for (let y = 0; y < TAM; y++) {
     for (let x = 0; x < TAM; x++) {
       if (!claro[(ty * TAM + y) * img.w + tx * TAM + x]) continue;
       const i = y * TAM + x;
-      bits[i >> 3] |= 128 >> (i & 7);
+      b[i >> 3] |= 128 >> (i & 7);
     }
   }
+  return b;
+}
+
+function registrar(bits) {
   const firma = bits.toString("base64");
   if (porFirma.has(firma)) return porFirma.get(firma);
-  const n = casillas.length;
-  casillas.push(bits);
+  const n = piezas.length;
+  piezas.push(bits);
   porFirma.set(firma, n);
   return n;
 }
 
-/* ───────── unidades ───────── */
+function casilla(tx, ty) { return registrar(bitsDe(tx, ty)); }
+function unosDe(bits) { let u = 0; for (const b of bits) u += (b.toString(2).match(/1/g) || []).length; return u; }
 
-const unidades = [];
-const casas = [];              // por unidad: columnas donde hay puerta
-const cercas = [];             // cuánta cerca cruza cada manzana
-let pizzeria = -1;
+/* coordenadas de casilla dentro de una manzana concreta */
+const enManzana = (fx, fy, bx, by) =>
+  [fx * UNIDAD + CALZADA + bx, fy * UNIDAD + CALZADA + by];
+const enCalzada = (fx, fy, cx, cy) => [fx * UNIDAD + cx, fy * UNIDAD + cy];
+
+/* ───────── dónde está la pizzería ───────── */
+
+/* Es la única manzana sin cerca cruzándola. Hay que saberlo antes de
+   recoger casas: si no, su local acaba repartido por la ciudad como si
+   fuera una vivienda más. */
+let pizzeriaFx = 0, pizzeriaFy = 0, menosCerca = Infinity;
+for (let fy = 0; fy < filas; fy++) {
+  for (let fx = 0; fx < columnas; fx++) {
+    let n = 0;
+    for (let bx = 2; bx < MANZANA - 2; bx++) {
+      for (const by of [8, 9]) n += unosDe(bitsDe(...enManzana(fx, fy, bx, by)));
+    }
+    if (n < menosCerca) { menosCerca = n; pizzeriaFx = fx; pizzeriaFy = fy; }
+  }
+}
+
+/* ───────── banqueta ───────── */
+
+/* El anillo es un empedrado que se repite, así que con una casilla basta. */
+const BANQUETA = casilla(...enManzana(0, 0, 8, 0));
+
+/* ───────── calzada ───────── */
+
+/* La raya de carril queda partida entre dos casillas del dibujo, porque cae
+   justo en la frontera. Para una calzada de ancho impar hace falta una
+   casilla con la raya centrada, así que se compone a mano. */
+function mitades(aBits, bBits, vertical) {
+  const salida = Buffer.alloc(32);
+  for (let y = 0; y < TAM; y++) {
+    for (let x = 0; x < TAM; x++) {
+      const i = y * TAM + x;
+      let encendido;
+      if (vertical) {
+        encendido = x < TAM / 2
+          ? (bBits[(y * TAM + x + TAM / 2) >> 3] >> (7 - ((y * TAM + x + TAM / 2) & 7))) & 1
+          : (aBits[(y * TAM + x - TAM / 2) >> 3] >> (7 - ((y * TAM + x - TAM / 2) & 7))) & 1;
+      } else {
+        const j = y < TAM / 2 ? (y + TAM / 2) * TAM + x : (y - TAM / 2) * TAM + x;
+        const fuente = y < TAM / 2 ? bBits : aBits;
+        encendido = (fuente[j >> 3] >> (7 - (j & 7))) & 1;
+      }
+      if (encendido) salida[i >> 3] |= 128 >> (i & 7);
+    }
+  }
+  return salida;
+}
+
+/* busca una casilla de calzada lisa y las dos mitades de la raya */
+let CALLE = -1, RAYA_V = -1, RAYA_H = -1;
+{
+  const vIzq = bitsDe(...enCalzada(1, 1, 0, 8));   // mitad izquierda de la raya vertical
+  const vDer = bitsDe(...enCalzada(1, 1, 1, 8));
+  const hArr = bitsDe(...enCalzada(1, 1, 8, 0));
+  const hAba = bitsDe(...enCalzada(1, 1, 8, 1));
+  RAYA_V = registrar(mitades(vIzq, vDer, true));
+  RAYA_H = registrar(mitades(hArr, hAba, false));
+
+  for (let y = 2; y < UNIDAD && CALLE === -1; y++) {
+    const b = bitsDe(...enCalzada(1, 1, 0, y));
+    if (unosDe(b) === 0) CALLE = registrar(b);
+  }
+  if (CALLE === -1) CALLE = registrar(Buffer.alloc(32));
+}
+
+/* ───────── pasto, árboles y cerca ───────── */
+
+const pasto = new Set(), arboles = [], cerca = new Set();
 
 for (let fy = 0; fy < filas; fy++) {
   for (let fx = 0; fx < columnas; fx++) {
-    const ox = fx * UNIDAD, oy = fy * UNIDAD;
-    const rejilla = [];
-    for (let y = 0; y < UNIDAD; y++) {
-      const fila = [];
-      for (let x = 0; x < UNIDAD; x++) fila.push(casillaEn(ox + x, oy + y));
-      rejilla.push(fila);
+    /* franja de pasto: filas 2 a 7 de la manzana */
+    for (let by = 2; by <= 7; by++) {
+      for (let bx = 2; bx < MANZANA - 2; bx++) {
+        const b = bitsDe(...enManzana(fx, fy, bx, by));
+        if (unosDe(b) <= 14) pasto.add(registrar(b));
+      }
     }
-    unidades.push(rejilla);
+    if (fx === pizzeriaFx && fy === pizzeriaFy) continue;
+    /* cerca: filas 8 y 9 */
+    for (let bx = 2; bx < MANZANA - 2; bx++) {
+      for (const by of [8, 9]) {
+        const b = bitsDe(...enManzana(fx, fy, bx, by));
+        if (unosDe(b) > 14) cerca.add(registrar(b));
+      }
+    }
+  }
+}
 
-    /* Las dos casas de cada manzana: en la banda donde están los tejados,
-       se mide cuánto claro hay por columna y se buscan los dos montes. */
-    const bandaY0 = oy + 13, bandaY1 = oy + 18;
-    const densidad = [];
-    for (let x = 0; x < MANZANA; x++) {
-      let n = 0;
-      for (let py = bandaY0 * TAM; py < bandaY1 * TAM; py++) {
-        for (let px = (ox + CALLE + x) * TAM; px < (ox + CALLE + x + 1) * TAM; px++) {
-          if (claro[py * img.w + px]) n++;
+/* árboles y arbustos: trozos de 2x2 con bastante dibujo dentro */
+const vistosArbol = new Set();
+for (let fy = 0; fy < filas; fy++) {
+  for (let fx = 0; fx < columnas; fx++) {
+    for (let by = 2; by <= 6; by++) {
+      for (let bx = 2; bx < MANZANA - 3; bx++) {
+        const t = [[0,0],[1,0],[0,1],[1,1]].map(([dx, dy]) =>
+          bitsDe(...enManzana(fx, fy, bx + dx, by + dy)));
+        const total = t.reduce((a, b) => a + unosDe(b), 0);
+        if (total < 80 || total > 420) continue;
+        const firma = t.map((b) => b.toString("base64")).join("|");
+        if (vistosArbol.has(firma)) continue;
+        vistosArbol.add(firma);
+        arboles.push(t.map(registrar));
+      }
+    }
+  }
+}
+
+/* ───────── casas ───────── */
+
+/* Cada casa son 6x6 casillas (filas 10-15) más su patio de 4 filas. */
+const ALTO_CASA = 10, ANCHO_CASA = 6;
+const casas = [];
+const vistasCasa = new Set();
+
+for (let fy = 0; fy < filas; fy++) {
+  for (let fx = 0; fx < columnas; fx++) {
+    if (fx === pizzeriaFx && fy === pizzeriaFy) continue;   // el local no es una casa
+    for (const bx of [2, 10]) {
+      const sello = [];
+      let total = 0;
+      for (let dy = 0; dy < ALTO_CASA; dy++) {
+        for (let dx = 0; dx < ANCHO_CASA; dx++) {
+          const b = bitsDe(...enManzana(fx, fy, bx + dx, 10 + dy));
+          total += unosDe(b);
+          sello.push(registrar(b));
         }
       }
-      densidad.push(n);
+      if (total < 600) continue;                 // ahí no había casa
+      const firma = sello.join(",");
+      if (vistasCasa.has(firma)) continue;
+      vistasCasa.add(firma);
+      casas.push(sello);
     }
-    const tope = Math.max(...densidad) * 0.30;
-    const montes = [];
-    let dentro = false, desde = 0;
-    densidad.forEach((v, x) => {
-      if (v >= tope && !dentro) { dentro = true; desde = x; }
-      if ((v < tope || x === MANZANA - 1) && dentro) {
-        dentro = false;
-        if (x - desde >= 3) montes.push(Math.round((desde + x - 1) / 2));
-      }
-    });
-    casas.push(montes);
+  }
+}
 
-    /* La pizzería es la única manzana sin cerca cruzándola. */
-    cercas.push(densidadCerca(ox, oy));
+/* ───────── el local de la pizzería ───────── */
+
+const ANCHO_PIZZERIA = 10;
+const pizzeria = [];
+for (let dy = 0; dy < ALTO_CASA; dy++) {
+  for (let dx = 0; dx < ANCHO_PIZZERIA; dx++) {
+    pizzeria.push(casilla(...enManzana(pizzeriaFx, pizzeriaFy, 2 + dx, 10 + dy)));
   }
 }
 
-/* Cuánto claro hay en la franja donde todas las manzanas tienen su cerca. */
-function densidadCerca(ox, oy) {
-  let n = 0;
-  for (let py = (oy + 10) * TAM; py < (oy + 12) * TAM; py++) {
-    for (let px = (ox + CALLE + 2) * TAM; px < (ox + UNIDAD - CALLE) * TAM; px++) {
-      if (claro[py * img.w + px]) n++;
-    }
-  }
-  return n;
-}
-
-pizzeria = cercas.indexOf(Math.min(...cercas));
-console.log("cerca por unidad:", cercas.map((c, i) => (i === pizzeria ? "[" + c + "]" : c)).join(" "));
-
-console.log(`casillas distintas: ${casillas.length} (${casillas.length * 32} bytes)`);
-console.log(`pizzería: unidad ${pizzeria} (fila ${Math.floor(pizzeria / columnas) + 1}, columna ${pizzeria % columnas + 1})`);
-console.log(`puertas por unidad: ${casas.map((c) => c.length).join(" ")}`);
-
-/* ───────── qué se puede pisar ───────── */
-
-/* La calzada siempre; de la manzana, solo el anillo de banqueta. Se mide
-   mirando cuántas casillas claras seguidas hay desde el borde hacia dentro. */
-function unosDe(n) {
-  let u = 0;
-  for (const b of casillas[n]) u += (b.toString(2).match(/1/g) || []).length;
-  return u;
-}
-
-function grosorBanqueta(rejilla) {
-  let grosor = 0;
-  for (let d = 0; d < 8; d++) {
-    let claras = 0, total = 0;
-    for (let i = 0; i < MANZANA; i++) {
-      for (const [x, y] of [[CALLE + i, CALLE + d], [CALLE + i, CALLE + MANZANA - 1 - d],
-                            [CALLE + d, CALLE + i], [CALLE + MANZANA - 1 - d, CALLE + i]]) {
-        total++;
-        if (unosDe(rejilla[y][x]) >= 170) claras++;   // dos tercios de la casilla
-      }
-    }
-    if (claras < total * 0.9) break;
-    grosor = d + 1;
-  }
-  return grosor;
-}
-const banqueta = Math.min(...unidades.map(grosorBanqueta));
-console.log(`banqueta: ${banqueta} casillas de ancho`);
+console.log(`piezas distintas: ${piezas.length} (${piezas.length * 32} bytes)`);
+console.log(`pasto: ${pasto.size} · cerca: ${cerca.size} · árboles: ${arboles.length} · casas: ${casas.length}`);
+console.log(`pizzería: manzana ${pizzeriaFx + 1},${pizzeriaFy + 1}`);
 
 /* ───────── salida ───────── */
 
-const bits = Buffer.concat(casillas);
+const bits = Buffer.concat(piezas);
 const bloque =
   `${INICIO}\n` +
   `// Generado por convertir-ciudad.mjs desde sprites/mapa_gigante.png — no editar a mano.\n` +
-  `const CIUDAD_CALLE = ${CALLE};\n` +
-  `const CIUDAD_MANZANA = ${MANZANA};\n` +
-  `const CIUDAD_BANQUETA = ${banqueta};\n` +
-  `const CIUDAD_PIZZERIA = ${pizzeria};\n` +
-  `const CIUDAD_CASILLAS = "${bits.toString("base64")}";\n` +
-  `const CIUDAD_UNIDADES = ${JSON.stringify(unidades.map((u) => u.map((f) => f.join(",")).join(";")))};\n` +
-  `const CIUDAD_PUERTAS = ${JSON.stringify(casas)};\n` +
+  `const P_BITS = "${bits.toString("base64")}";\n` +
+  `const P_BANQUETA = ${BANQUETA};\n` +
+  `const P_CALLE = ${CALLE};\n` +
+  `const P_RAYA_V = ${RAYA_V};\n` +
+  `const P_RAYA_H = ${RAYA_H};\n` +
+  `const P_PASTO = ${JSON.stringify([...pasto])};\n` +
+  `const P_CERCA = ${JSON.stringify([...cerca])};\n` +
+  `const P_ARBOLES = ${JSON.stringify(arboles)};\n` +
+  `const P_CASA_ANCHO = ${ANCHO_CASA};\n` +
+  `const P_CASA_ALTO = ${ALTO_CASA};\n` +
+  `const P_CASAS = ${JSON.stringify(casas)};\n` +
+  `const P_PIZZERIA_ANCHO = ${ANCHO_PIZZERIA};\n` +
+  `const P_PIZZERIA = ${JSON.stringify(pizzeria)};\n` +
   `${FIN}`;
 
 const html = fs.readFileSync(DESTINO, "utf8");
