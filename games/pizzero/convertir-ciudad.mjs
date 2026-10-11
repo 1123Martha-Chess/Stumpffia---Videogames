@@ -297,6 +297,13 @@ for (let dy = 0; dy < ALTO_CASA; dy++) {
     pizzeria.push(casilla(...enManzana(pizzeriaFx, pizzeriaFy, 2 + dx, 10 + dy)));
   }
 }
+/* El chef que venía dibujado en el molde se borra: ahora se pinta como
+   sprite aparte, con su contorno, para que se distinga del local. */
+const unPasto = [...pasto][0];
+for (const [cx, cy] of [[4, 6], [5, 6], [4, 7], [5, 7]]) {
+  pizzeria[cy * ANCHO_PIZZERIA + cx] = unPasto;
+}
+
 const pizzeriaMacizo = pizzeria.map(function (n, k) {
   return (k < 6 * ANCHO_PIZZERIA && unosDe(piezas[n]) >= 30) ? 1 : 0;
 });
