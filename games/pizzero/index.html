@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="stylesheet" href="/assets/css/fuente.css">
+<link rel="stylesheet" href="/assets/css/pixel.css">
 <style>
   :root {
     --marino:#0B1A4A; --tarjeta:#13295E; --claro:#7EC8F2;
@@ -18,7 +18,7 @@
   html, body { height:100%; }
   body {
     margin:0; background:var(--marino); color:var(--claro);
-    font:15px/1.4 "Nunito",ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+    font:13px/1.5 "Silkscreen",ui-monospace,monospace;
     overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;
   }
   canvas { position:fixed; inset:0; display:block; image-rendering:pixelated; touch-action:none; }
@@ -35,8 +35,8 @@
     background:var(--marino);
     font-variant-numeric:tabular-nums;
   }
-  .ficha span { font-size:9px; font-weight:800; letter-spacing:.14em; color:var(--apagado); }
-  .ficha b { font-size:15px; font-weight:800; color:var(--claro); }
+  .ficha span { font-size:8px; letter-spacing:.08em; color:var(--apagado); }
+  .ficha b { font-size:14px; color:var(--claro); }
   .ficha.urgente { animation:latir .7s infinite; }
   @keyframes latir { 50% { background:var(--claro); color:var(--marino); } }
   #pizzas { display:flex; gap:8px; margin-left:auto; }
@@ -65,23 +65,23 @@
     width:min(430px,100%); padding:28px 26px 22px; text-align:center;
     background:var(--tarjeta); border:3px solid var(--claro);
   }
-  .tarjeta h1 { margin:0 0 8px; font-size:clamp(26px,7vw,34px); font-weight:800; letter-spacing:-.02em; line-height:1.1; }
-  .tarjeta p { margin:0; color:var(--apagado); font-size:14px; line-height:1.5; }
+  .tarjeta h1 { margin:0 0 10px; font-size:clamp(20px,5vw,26px); line-height:1.2; }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:11px; line-height:1.7; }
   .tarjeta button {
     width:100%; min-height:48px; margin-top:20px;
     border:2px solid var(--marino); cursor:pointer;
-    font:inherit; font-size:16px; font-weight:800;
+    font:inherit; font-size:13px;
     background:var(--claro); color:var(--marino);
   }
   .tarjeta button:active { transform:translate(1px,1px); }
   .reglas {
     margin:20px 0 0; padding:14px 2px 2px; border-top:2px solid var(--borde);
-    display:grid; gap:7px; font-size:12.5px; text-align:left;
+    display:grid; gap:8px; font-size:10px; text-align:left;
   }
   .reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
   .reglas span { color:var(--apagado); }
-  .reglas b { font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .tarjeta a { display:inline-block; margin-top:16px; color:var(--apagado); font-size:12px; font-weight:700; text-decoration:none; }
+  .reglas b { white-space:nowrap; }
+  .tarjeta a { display:inline-block; margin-top:16px; color:var(--apagado); font-size:10px; text-decoration:none; }
   .tarjeta a:hover { color:var(--claro); }
 </style>
 </head>
@@ -133,19 +133,20 @@ const BITS = "B+AP8A5wH/gAAA/wC9AP8APAP/xv9mw2b/YP8AwwHDgH4A/wDnAf+AAAD/AL0A/wA8
 
 /* CIUDAD-INICIO */
 // Generado por convertir-ciudad.mjs desde sprites/mapa_gigante.png — no editar a mano.
-const P_BITS = "//z//P/8//z//P/8//z//P/8//z//P/8//z//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwM/AzzDPMP/////PAM8AzwDPAM8AzwD/////zwDPAM8AzwDzADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAMz8zPzAPMA8/////8A8wDzAPMA8wDzAPP/////APMA8wDzAPADMAMwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAMAAwAMAAwAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAAAAAwADAAAAAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAAAAAPwA/A/8D/w/zD/M/zz/PP/8///8//z/8//z///z//D/PP88//z//D/wP/DP/M//MP8w/AA8ADwAPAA8A/wD/AAAAAA/AD8AMwAzAD8APwAzADMADwAPAAMAAwAADAAMAAAAAAAAAAD8APwAzwDPAPwA/AAwADAAPAA8ADAAMAPz8/Pz//P/8//D/8P/w//D8zPzM8ADwAPAA8AD/AP8AAAwADAA/AD8AMwAzMD8wP8wMzAwAPAA8AAwADAAAAADAAMAAAAAAAAD8APwAzADMAPwA/AAwADAA8ADwAAAAAPwA/AD/wP/A//D/8PP88/zP/M/8/z//Pz/PP8//////AAAAAAAAAAAAAAAAAwADAAzADMAAPwA/A/8D/w/PD88//D/8Pz8/Pz//P/8//z//z//P/wAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMAAAAAAPwA/AP/A/8D88Pzw//z//P88/zw//D/8//D/8P/M/8wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAMAP/8//zMMMwwzDDMMMwwzDAAAAAAAAAAAAwADAAzADMD/////MMMwwzDDMMMwwzDDAAAAAAAAAAAAAAAAAwADAP////8MMAwwDDAMMAwwDDAAAAAAAAAAAAMAAwAMwAzA/////8MMwwzDDMMMwwzDDDMMMwwzDDMMMwwzDDMMMwzzDPMMMwwzDDMMMww//z//MMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMww/////8MMAwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAww/////8MMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwz/////MwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAwwwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwzDDMMMwwzDDMMMww//z//zADMAAP/A/8D/wP/AAAAADDDMMMwwzDDMMMww/////8AzADM//////////8AAAAADDAMMAwwDDAMMAww/////8wAzAD//////////wAAAADDDMMMwwzDDMMMwwz/////AMwAzP//////////AAAAAAP8A/wD/AP8AAAAAAP8A/wP/A/8AAAAAAP8A/wD/wP/AwMDAwMDAwMDAAMA//P/8wMDAwMDAAMAAAMAA//////8APwA/AD8AAA/AD//MP8w/PD88AAwADD8MPww/DD8MAA/AD8APwA//wD/AAz/DP8MPww/DAAMAAw/DD8MPww/AAwADAP/A/8D/wP/MAAwAM//z/8AAAAAAAAAAAAAAADAAMAA//////////8AMAAw/////wAAAAAAAAAAAAAAAAAwADD8MPww/DD8MDAwMDD8P/w/D/8P/wwADAAAAAAAPAA8AAw/DD8MPww/DDAMMPz//P//8P/wADAAMAAAAAAAAAAAD/wP/D/8P/w//D/8P/w//A/8D/wAAAAAAAAAAAAAAAA/8D/w//z//P/8//z//P/8P/A/8AAAAAAAAAAAD/wP/D/8P/w//D/8P/w//A/8D/wAAAAAAAAAAAAAAAA/8D/w//z//P/8//z//P/8P/A/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAwA//z//PAA8ADwAPAA8ADwAAAAAAAAAAAADAAMADMAMwP/////ADMAMwAzADMAMwAwAAAAAAAAAAAAAAAADAAMA/////wDAAMAAwADAAMAAwAAAAAAAAAAAAwADAAzADMD/////DAAMAAwADAAMAAwAP/8//zAwMDAwMDAwMDAwMP////88ADwAPAA8ADwAPAD/////AwADAAMAAwADAAMA/////8AMwAzADMAMwAzADP////8wAzADMAMwAzADMAP/////AMAAwADAAMAAwADA/////wAwADAAMAAwADAAMP////8MAAwADAAMAAwADAA//z//MDAwMDAwMDAwMDAwP/8//zwAPAA8ADwAPAA8AD//P/8wMDAwMDAwMD//P//MAMwAA/8D/wP/A/8D/AP8/////wMAAwADAAMA/////wDMAMz//////////wAAAAD/////MAMwAzADMAP/////zADMAP////////////////////8AMAAwADAAMP////8AzADM////////////////A/wD/AP8A/wD/AP8A/wD/A/8D/wD/AP8A/wD/AP8A/wDAAMAAwADAAMAAwD//P/8AwADAAMAAwADAAMAAAAAAPwA/AD8APwA/D/8P/ww/DD8MPww/DD8MPww/DD8MPwwAD8APwA/AD/8P/w/DD8MPww/DD8MPww/DD8MPww/DD8D/wP/A/8D/wP/A/8z/zP/z//P/wAAAAAAAAAAAAAAAP//////////////////////////AAAAAAAAAAAAAAAA/DD8MPww/DD8MPww/DD8MPw//D8P/w//DAAMAAAAAAA8Pzw/DD8MPww/DD8MPww//D/8P//w//AAMAAwAAAAAAAAAAAAAAAAAAAAAAMAAwA//z//MAAwADAAMAAwADAA//D/8MAwwDDAMMAw//D/8P//////8P/w//D/8P/w//AAAAAAAAAAAAAAAAADAAMA/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMD/////AAAAAAAAAAAAAAAAMAAwAD//P/8w8DDwMAAwAP8P/w8wADAAMPAw8DAAMAAAAAAA//////Dw8PAAAAAADw8PDwAAAADw8PDwAAAAAD8PPw8wADAAMPAw8DAAMAA/Dz8PMAAwADDwMPAwADAADw8PDwAAAADw8PDwAAAAAA8PDw8AAAAA8PDw8AAAAAA/Dz8PMAAwADDwMPA//z//zADMAAP/A/8D/wP/A/wD/A8PDw8AAAAA8PDw8P////8AzADM//////////8AAAAADw8PDwAAAADw8PDw/////8wAzAD///////////////8PDw8PAAAAAPDw8PD/////AMwAzP///////////////wPwA/AD8APwA/AD8DP/M//P/8//AAAAAAAAAAAAAAAAwwzDDAAAAAAAAAAA//////////8AAAAAAAAAAAAAAAA8MDwwPDA8MDwwPDD8MPww/D/8Pw//D/8MAAwAAAAAADw8PDwMPAw8DDwMPAw/DD/8P/w///D/8AAwADAAAAAAAAAAAAAAAAD/////wADAAMAAwADAA8ADwA/AD8A8wDwAAAAAAAAAAP////8AAAAAP/w//P////8AAAAA/////wAAAAAAAAAA/////wAAAAAAAAAAwADAAPAA8AA8DzwPAAAAAAAAAAD/////AAAAAAAAAAAAAAAAAAAAAP////8AAAAAAAAAAP////8AAwADAAMAAwADAAMAAwAD/wP/A8AzwDPA88DzwM/Az8DPwM/Az8DPwM/Az8DzwPPAM8Azw/DD8ADAAMAAwADAwDDAMPw//D/D8MPwAMAAwADAAMDMDMwMDwwPDDMMMwzzDPMM8wzzDPMM8wwPDA8MDAwMDAAAAAD///////z//P/8//z//P/8//z//P/8//z/////AAAAAP////8MDAwMzz/PPw8/Dz//PP88/Az8DP////8AAAAA/////wwPDA/PzM/MPzw/PPz8/PwMDAwM/////wAAAAD/////P/8//8//z/8P/w//z//P/8//z///////AwMDA/MD8wPzA/MD8wPzA/MD8wPzA/MD8wPzA/MD8wPAPMA8wA/AD8ADwAPAAMAAwADAAMAAwADAAMAA/////8Pww/AAAAAA/////z/8P/wAAAAAAAAAAAAAAAD/////PAw8DPAP8A/AAMAAAAAAAAAAAAAAAAAAAAAAAP////8AAAAA/////wAAAAAAAAAAAAAAAAAAAAAAAAAA/////wMDAwP/A/8DAAMAAwADAAMAAwADAAMAAwADAAP///////////8A/wD/AP8A/wD/AP8A/wD/AP8APAA8AA//D////////wD/AP8A/wD/AP8A/wD/AP8A/wA8ADwA////////////AP8A/wD/AP8w/zD/zP/M/wD/ADwAPAD/8P/wD/8P/w/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8D/////AAAAAAAAAAAAAAAAAwADAAwwDDAwwDDAwwDDAP////8AAwADAAMAAwADAAM/Az8DPwM/AwADAAMAAwAD//////AA8ADz/PP88wzzDPMM8wzzDPMM8wzzDPMM8wz/////AA8ADz/PP88wzzDPMM8wzzDPMM8wzzDPMM8wz//////AAMAAwADAAMAAwADAA8ADwAzADMAwwDDAw8DD/////wAAAAAAAAAAAAAAAAA/AD8wPzA/wADAAAAAAAD/8P/wA/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8A/AD8APwA/AD8APwD//P//P/8//D/8P/w//D/8AAAAADAAMAAAAAAAAAAAA/////////////////////wAAAAAAAwADAAMAAwADAAP/////////////////////AAAAAPMM8wzz/PP88/Dz8PP88/zz/PP88/zz/PP88/z/////MM8wzz/PP88Pzw/PP88/zz/PP88/zz/PP88/z//////ADMAMwADAAMAAwAD/////////////////////AAAAAAAAAAAAAAAAAAAAAP////////////////////8AAAAAA/AD8APwA/AD8APw//D/8P/8//z/8P/w//D/8AAAAAAAPwA/D/8P/z/8P/w//z//P/w//A//D/8AzwDPAP8A//wA/AD/8P/wP/w//P/8//z//P/8//D/8PMA8wD/AP8AD/8P/z//P/8wADAAMAAwAD//P/8A/wD/APAA8APwA/D/8P/w//z//AAMAAwADAAM//z//P8A/wAPAA8AD8APwA==";
+const P_BITS = "//z//P/8//z//P/8//z//P/8//z//P/8//z//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwM/AzzDPMP/////PAM8AzwDPAM8AzwD/////zwDPAM8AzwDzADMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAMz8zPzAPMA8/////8A8wDzAPMA8wDzAPP/////APMA8wDzAPADMAMwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAMAAwAMAAwAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAAAAAwADAAAAAAAAAAAAAADAAMADMAMwAAAAAAAAAAAAAAAAAPwA/A/8D/w/zD/M/zz/PP/8///8//z/8//z///z//PwA/AD/wP/A//D/8PP88/zP/M/8/z//Pz/PP8//////P88/zz//P/8P/A/8M/8z/8w/zD8ADwAPAA8ADwD/AP/8/Pz8//z//P/w//D/8P/w/Mz8zPAA8ADwAPAA/wD/AAAAAAAPwA/ADMAMwA/AD8AMwAzAA8ADwADAAMAAAwADAAAAAAAAAAA/AD8AM8AzwD8APwAMAAwADwAPAAwADAAADAAMAD8APwAzADMwPzA/zAzMDAA8ADwADAAMAAAAAMAAwAAAAAAAAPwA/ADMAMwA/AD8ADAAMADwAPAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMAAPwA/A/8D/w/PD88AAAAAAAAAAAMAAwAMwAzAAAAAAD8APwD/wP/A/PD88D/8P/w/Pz8/P/8//z//P//P/8//AAAAAAAAAAAAAAAA//z//P88/zw//D/8//D/8P/M/8wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAMAP/8//zMMMwwzDDMMMwwzDAAAAAAAAAAAAwADAAzADMD/////MMMwwzDDMMMwwzDDAAAAAAAAAAAAAAAAAwADAP////8MMAwwDDAMMAwwDDAAAAAAAAAAAAMAAwAMwAzA/////8MMwwzDDMMMwwzDDDMMMwwzDDMMMwwzDDMMMwzzDPMMMwwzDDMMMww//z//MMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMww/////8MMAwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAww/////8MMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwz/////MwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAwwDDAMMAwwwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwzDDMMMwwwzDDMMMwwzDDMMMww//z//zADMAAP/A/8D/wP/AAAAADDDMMMwwzDDMMMww/////8AzADM//////////8AAAAADDAMMAwwDDAMMAww/////8wAzAD//////////wAAAADDDMMMwwzDDMMMwwz/////AMwAzP//////////AAAAAAP8A/wD/AP8AAAAAAP8A/wP/A/8AAAAAAP8A/wD/wP/AwMDAwMDAwMDAAMA//P/8wMDAwMDAAMAAAMAA//////8APwA/AD8AAA/AD//MP8w/PD88AAwADD8MPww/DD8MAA/AD8APwA//wD/AAz/DP8MPww/DAAMAAw/DD8MPww/AAwADAP/A/8D/wP/MAAwAM//z/8AAAAAAAAAAAAAAADAAMAA//////////8AMAAw/////wAAAAAAAAAAAAAAAAAwADD8MPww/DD8MDAwMDD8P/w/D/8P/wwADAAAAAAAPAA8AAw/DD8MPww/DDAMMPz//P//8P/wADAAMAAAAAAAAAAAD/wP/D/8P/w//D/8P/w//A/8D/wAAAAAAAAAAAAAAAA/8D/w//z//P/8//z//P/8P/A/8AAAAAAAAAAAD/wP/D/8P/w//D/8P/w//A/8D/wAAAAAAAAAAAAAAAA/8D/w//z//P/8//z//P/8P/A/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAwA//z//PAA8ADwAPAA8ADwAAAAAAAAAAAADAAMADMAMwP/////ADMAMwAzADMAMwAwAAAAAAAAAAAAAAAADAAMA/////wDAAMAAwADAAMAAwAAAAAAAAAAAAwADAAzADMD/////DAAMAAwADAAMAAwAP/8//zAwMDAwMDAwMDAwMP////88ADwAPAA8ADwAPAD/////AwADAAMAAwADAAMA/////8AMwAzADMAMwAzADP////8wAzADMAMwAzADMAP/////AMAAwADAAMAAwADA/////wAwADAAMAAwADAAMP////8MAAwADAAMAAwADAA//z//MDAwMDAwMDAwMDAwP/8//zwAPAA8ADwAPAA8AD//P/8wMDAwMDAwMD//P//MAMwAA/8D/wP/A/8D/AP8/////wMAAwADAAMA/////wDMAMz//////////wAAAAD/////MAMwAzADMAP/////zADMAP////////////////////8AMAAwADAAMP////8AzADM////////////////A/wD/AP8A/wD/AP8A/wD/A/8D/wD/AP8A/wD/AP8A/wDAAMAAwADAAMAAwD//P/8AwADAAMAAwADAAMAAAAAAPwA/AD8APwA/D/8P/ww/DD8MPww/DD8MPww/DD8MPwwAD8APwA/AD/8P/w/DD8MPww/DD8MPww/DD8MPww/DD8D/wP/A/8D/wP/A/8z/zP/z//P/wAAAAAAAAAAAAAAAP//////////////////////////AAAAAAAAAAAAAAAA/DD8MPww/DD8MPww/DD8MPw//D8P/w//DAAMAAAAAAA8Pzw/DD8MPww/DD8MPww//D/8P//w//AAMAAwAAAAAAAAAAAAAAAAAAAAAAMAAwA//z//MAAwADAAMAAwADAA//D/8MAwwDDAMMAw//D/8P//////8P/w//D/8P/w//AAAAAAAAAAAAAAAAADAAMA/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAwADAAzADMD/////AAAAAAAAAAAAAAAAMAAwAD//P/8w8DDwMAAwAP8P/w8wADAAMPAw8DAAMAAAAAAA//////Dw8PAAAAAADw8PDwAAAADw8PDwAAAAAD8PPw8wADAAMPAw8DAAMAA/Dz8PMAAwADDwMPAwADAADw8PDwAAAADw8PDwAAAAAA8PDw8AAAAA8PDw8AAAAAA/Dz8PMAAwADDwMPA//z//zADMAAP/A/8D/wP/A/wD/A8PDw8AAAAA8PDw8P////8AzADM//////////8AAAAADw8PDwAAAADw8PDw/////8wAzAD///////////////8PDw8PAAAAAPDw8PD/////AMwAzP///////////////wPwA/AD8APwA/AD8DP/M//P/8//AAAAAAAAAAAAAAAAwwzDDAAAAAAAAAAA//////////8AAAAAAAAAAAAAAAA8MDwwPDA8MDwwPDD8MPww/D/8Pw//D/8MAAwAAAAAADw8PDwMPAw8DDwMPAw/DD/8P/w///D/8AAwADAAAAAAAAAAAAAAAAD/////wADAAMAAwADAA8ADwA/AD8A8wDwAAAAAAAAAAP////8AAAAAP/w//P////8AAAAA/////wAAAAAAAAAA/////wAAAAAAAAAAwADAAPAA8AA8DzwPAAAAAAAAAAD/////AAAAAAAAAAAAAAAAAAAAAP////8AAAAAAAAAAP////8AAwADAAMAAwADAAMAAwAD/wP/A8AzwDPA88DzwM/Az8DPwM/Az8DPwM/Az8DzwPPAM8Azw/DD8ADAAMAAwADAwDDAMPw//D/D8MPwAMAAwADAAMDMDMwMDwwPDDMMMwzzDPMM8wzzDPMM8wwPDA8MDAwMDAAAAAD///////z//P/8//z//P/8//z//P/8//z/////AAAAAP////8MDAwMzz/PPw8/Dz//PP88/Az8DP////8AAAAA/////wwPDA/PzM/MPzw/PPz8/PwMDAwM/////wAAAAD/////P/8//8//z/8P/w//z//P/8//z///////AwMDA/MD8wPzA/MD8wPzA/MD8wPzA/MD8wPzA/MD8wPAPMA8wA/AD8ADwAPAAMAAwADAAMAAwADAAMAA/////8Pww/AAAAAA/////z/8P/wAAAAAAAAAAAAAAAD/////PAw8DPAP8A/AAMAAAAAAAAAAAAAAAAAAAAAAAP////8AAAAA/////wAAAAAAAAAAAAAAAAAAAAAAAAAA/////wMDAwP/A/8DAAMAAwADAAMAAwADAAMAAwADAAP///////////8A/wD/AP8A/wD/AP8A/wD/AP8APAA8AA//D////////wD/AP8A/wD/AP8A/wD/AP8A/wA8ADwA////////////AP8A/wD/AP8w/zD/zP/M/wD/ADwAPAD/8P/wD/8P/w/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8D/////AAAAAAAAAAAAAAAAAwADAAwwDDAwwDDAwwDDAP////8AAwADAAMAAwADAAM/Az8DPwM/AwADAAMAAwAD//////AA8ADz/PP88wzzDPMM8wzzDPMM8wzzDPMM8wz/////AA8ADz/PP88wzzDPMM8wzzDPMM8wzzDPMM8wz//////AAMAAwADAAMAAwADAA8ADwAzADMAwwDDAw8DD/////wAAAAAAAAAAAAAAAAA/AD8wPzA/wADAAAAAAAD/8P/wA/AD8APwA/AD8APwA/AD8APwA/AD8APwA/AD8A/AD8APwA/AD8APwD//P//P/8//D/8P/w//D/8AAAAADAAMAAAAAAAAAAAA/////////////////////wAAAAAAAwADAAMAAwADAAP/////////////////////AAAAAPMM8wzz/PP88/Dz8PP88/zz/PP88/zz/PP88/z/////MM8wzz/PP88Pzw/PP88/zz/PP88/zz/PP88/z//////ADMAMwADAAMAAwAD/////////////////////AAAAAAAAAAAAAAAAAAAAAP////////////////////8AAAAAA/AD8APwA/AD8APw//D/8P/8//z/8P/w//D/8AAAAAAAPwA/D/8P/z/8P/w//z//P/w//A//D/8AzwDPAP8A//wA/AD/8P/wP/w//P/8//z//P/8//D/8PMA8wD/AP8AD/8P/z//P/8wADAAMAAwAD//P/8A/wD/APAA8APwA/D/8P/w//z//AAMAAwADAAM//z//P8A/wAPAA8AD8APwA==";
 const P_BANQUETA = 0;
 const P_CALLE = 1;
 const P_RAYA_V = 1;
 const P_RAYA_H = 1;
 const P_PASTO = [2];
 const P_CERCA = [3,4,5,6,7,8,9];
-const P_ARBOLES = [[2,10,9,11],[9,8,2,12],[8,9,12,13],[9,8,13,7],[9,11,2,7],[11,14,7,2],[2,12,9,15],[12,13,15,16],[13,7,16,8],[9,15,2,10],[16,8,17,7],[9,8,2,10],[8,9,10,17],[9,8,17,10],[9,8,17,7],[17,7,14,8],[2,18,9,19],[18,20,19,21],[14,8,2,7],[9,19,2,7],[19,21,7,2],[9,11,17,7],[9,15,2,7],[15,16,7,2],[16,8,2,7],[9,8,13,10],[16,8,2,10],[9,8,13,12],[13,12,16,15],[20,7,21,8],[21,8,2,7],[9,8,2,18],[8,9,18,20],[9,8,20,7],[14,8,2,12],[9,11,2,18],[14,11,20,7],[9,15,2,18],[15,16,18,20],[16,8,20,7],[9,8,13,18],[13,18,16,19],[16,19,2,7],[16,8,2,12],[14,11,2,7],[9,11,2,12],[11,14,12,13],[14,8,13,7],[9,19,2,10],[21,8,17,7],[9,8,20,18],[20,18,21,19],[21,8,2,10],[9,8,17,12],[9,11,13,7],[14,8,2,10],[9,15,17,7],[21,8,2,12],[14,15,2,7],[16,11,2,10],[14,8,17,7]];
+const P_ARBOLES = [{"w":2,"h":2,"t":[10,11,12,13]},{"w":1,"h":1,"t":[14]},{"w":1,"h":1,"t":[15]},{"w":2,"h":2,"t":[14,15,16,17]},{"w":1,"h":1,"t":[17]},{"w":4,"h":2,"t":[10,11,10,11,12,13,12,13]},{"w":2,"h":2,"t":[18,19,20,21]},{"w":4,"h":4,"t":[10,11,10,11,12,13,12,13,7,2,10,11,8,9,12,13]},{"w":2,"h":4,"t":[10,11,12,13,10,11,12,13]}];
 const P_CASA_ANCHO = 6;
 const P_CASA_ALTO = 10;
-const P_CASAS = [[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,12,13,7,2,46,47,15,16,8,9,48,49],[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,12,13,7,2,46,47,15,16,8,9,48,49],[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,18,20,7,2,46,47,19,21,8,9,48,49],[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,18,20,7,2,46,47,19,21,8,9,48,49],[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,18,20,7,2,46,47,19,21,8,9,48,49],[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,12,13,7,2,46,47,15,16,8,9,48,49]];
+const P_CASAS = [{"t":[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,14,15,7,2,46,47,16,17,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,7,2,7,2,46,47,8,9,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,14,15,7,2,46,47,16,17,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,22,23,24,25,8,9,26,27,28,29,7,2,30,31,32,33,8,9,34,35,36,37,7,2,38,39,40,41,8,9,42,43,44,45,7,2,7,2,46,47,8,9,8,9,48,49,18,19,7,2,46,47,20,21,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,18,19,7,2,46,47,20,21,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,71,72,73,74,8,9,75,76,76,76,7,2,77,78,78,78,8,9,79,80,81,82,7,2,63,64,65,66,8,9,83,84,85,86,7,2,7,2,46,47,8,9,8,9,48,49,18,19,7,2,46,47,20,21,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"t":[7,2,50,51,52,53,8,9,54,55,56,57,7,2,58,55,56,57,8,9,59,60,61,62,7,2,63,64,65,66,8,9,67,68,69,70,7,2,7,2,46,47,8,9,8,9,48,49,14,15,7,2,46,47,16,17,8,9,48,49],"m":[0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}];
 const P_PIZZERIA_ANCHO = 10;
-const P_PIZZERIA = [7,2,87,88,89,90,90,90,90,91,8,9,92,93,94,95,96,97,98,99,12,13,100,101,102,103,103,103,103,104,15,16,105,106,106,106,106,106,106,107,7,2,108,109,110,111,112,113,114,115,8,9,116,117,118,119,120,121,122,123,7,2,7,2,124,125,46,47,7,2,8,9,8,9,126,127,48,49,8,9,7,2,7,2,46,47,46,47,7,2,8,9,8,9,48,49,48,49,8,9];
+const P_PIZZERIA = [7,2,87,88,89,90,90,90,90,91,8,9,92,93,94,95,96,97,98,99,14,15,100,101,102,103,103,103,103,104,16,17,105,106,106,106,106,106,106,107,7,2,108,109,110,111,112,113,114,115,8,9,116,117,118,119,120,121,122,123,7,2,7,2,124,125,46,47,7,2,8,9,8,9,126,127,48,49,8,9,7,2,7,2,46,47,46,47,7,2,8,9,8,9,48,49,48,49,8,9];
+const P_PIZZERIA_MACIZO = [0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 /* CIUDAD-FIN */
 
 const MARINO = "#0B1A4A";
@@ -217,26 +218,33 @@ function recortarFondo(filas) {
   return fuera;
 }
 
+/* Los sprites se guardan en celdas de 18 con una casilla de margen: sin ese
+   margen, el contorno se perdía en los bordes del dibujo. */
+const CELDA = 18;
+
 function hojaDe(lista, opciones) {
+  const lado = opciones.transparente ? CELDA : TAM;
   const c = document.createElement("canvas");
-  c.width = TAM * lista.length; c.height = TAM;
+  c.width = lado * lista.length; c.height = lado;
   const ctx2 = c.getContext("2d");
-  const img = ctx2.createImageData(c.width, TAM);
+  const img = ctx2.createImageData(c.width, lado);
   const cl = [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
+  const margen = (lado - TAM) / 2;
 
   lista.forEach(function (filas, n) {
     const fuera = opciones.transparente ? recortarFondo(filas) : null;
-    for (let y = 0; y < TAM; y++) {
-      for (let x = 0; x < TAM; x++) {
-        const o = (y * c.width + n * TAM + x) * 4;
-        if (fuera && fuera[y * TAM + x]) {
+    for (let y = -margen; y < TAM + margen; y++) {
+      for (let x = -margen; x < TAM + margen; x++) {
+        const o = ((y + margen) * c.width + n * lado + x + margen) * 4;
+        const afuera = x < 0 || y < 0 || x >= TAM || y >= TAM;
+        if (afuera || (fuera && fuera[y * TAM + x])) {
           /* Contorno: el aire pegado al dibujo se pinta de azul marino para
              que el personaje se recorte sobre el suelo, sea cual sea. */
           let pegado = false;
           for (const d of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
             const nx = x + d[0], ny = y + d[1];
             if (nx < 0 || ny < 0 || nx >= TAM || ny >= TAM) continue;
-            if (!fuera[ny * TAM + nx]) { pegado = true; break; }
+            if (!fuera || !fuera[ny * TAM + nx]) { pegado = true; break; }
           }
           if (opciones.contorno && pegado) {
             img.data[o] = ma[0]; img.data[o+1] = ma[1]; img.data[o+2] = ma[2]; img.data[o+3] = 255;
@@ -292,7 +300,7 @@ const elegir = (a) => a[entero(a.length)];
    una calle. Salen rectángulos y cuadrados de tamaños muy distintos, en
    posiciones escalonadas, y el suelo queda bien aprovechado. */
 
-const MIN_MANZANA = 9;        // por debajo de esto no cabe ni una casa
+const MIN_MANZANA = 9;        // por debajo de esto no cabe ni una casa con su puerta
 
 function partir(x, y, w, h, veces, salida) {
   const cabePartidaV = w >= MIN_MANZANA * 2 + CALZADA;
@@ -300,7 +308,7 @@ function partir(x, y, w, h, veces, salida) {
 
   /* se deja de partir por tamaño, por sorteo o porque ya no cabe */
   const bastante = veces <= 0 || (!cabePartidaV && !cabePartidaH) ||
-                   (w * h < 420 && azar() < 0.55);
+                   (w * h < 230 && azar() < 0.5);
   if (bastante) {
     if (w >= 8 && h >= 10) salida.push({ x: x, y: y, w: w, h: h });
     return;
@@ -355,45 +363,52 @@ function vestirManzana(m) {
 
   const ix = m.x + BANQUETA, iy = m.y + BANQUETA;
   const iw = m.w - BANQUETA * 2, ih = m.h - BANQUETA * 2;
-  if (iw < P_CASA_ANCHO || ih < 6) return;
+  if (iw < P_CASA_ANCHO || ih < 7) return;
 
-  const conPatio = ih >= P_CASA_ALTO;
-  const alto = conPatio ? P_CASA_ALTO : 6;
-  let toca = m.pizzeria;                  // a la pizzería le toca el primer hueco
+  /* La casa son 6 filas de cuerpo. Con sitio de sobra se dibuja también su
+     patio (4 filas más). En los dos casos queda libre la fila de la puerta,
+     que antes podía caer DENTRO de la casa y dejaba la pizza inalcanzable. */
+  const conPatio = ih >= P_CASA_ALTO + 1;
+  const dibujo = conPatio ? P_CASA_ALTO : 6;
+  const ocupa = conPatio ? P_CASA_ALTO : 7;
+  let toca = m.pizzeria;
 
-  /* Filas de casas desde abajo hacia arriba, hasta que no quepa otra: así
-     una manzana grande no es un descampado con dos casas en la orilla. */
-  let arriba = iy + ih;
-  while (arriba - alto >= iy) {
-    const fila = arriba - alto;
+  let abajo = iy + ih;
+  while (abajo - ocupa >= iy) {
+    const fila = abajo - ocupa;
     for (let x = ix; x + P_CASA_ANCHO <= ix + iw; ) {
       const esTienda = toca && x + P_PIZZERIA_ANCHO <= ix + iw;
       const ancho = esTienda ? P_PIZZERIA_ANCHO : P_CASA_ANCHO;
-      const casa = esTienda ? P_PIZZERIA : elegir(P_CASAS);
-      for (let dy = 0; dy < alto; dy++) {
+      const casa = esTienda ? { t: P_PIZZERIA, m: P_PIZZERIA_MACIZO } : elegir(P_CASAS);
+      for (let dy = 0; dy < dibujo; dy++) {
         for (let dx = 0; dx < ancho; dx++) {
-          /* solo el cuerpo estorba el paso; el patio de delante se pisa */
-          ponerPieza(x + dx, fila + dy, casa[dy * ancho + dx], dy < 6);
+          const k = dy * ancho + dx;
+          /* solo estorba lo que de verdad tiene dibujo: nada de cajas de
+             choque en casillas vacías */
+          ponerPieza(x + dx, fila + dy, casa.t[k], casa.m[k] === 1);
         }
       }
-      const puerta = { x: x + (ancho >> 1), y: Math.min(fila + 6, iy + ih - 1) };
+      const puerta = { x: x + (ancho >> 1), y: fila + 6 };
       if (esTienda) { ciudad.pizzeria = puerta; toca = false; }
       else ciudad.puertas.push(puerta);
       x += ancho + 2;
     }
-    arriba = fila - 3;                    // hueco entre filas
+    abajo = fila - 3;
   }
 
-  /* cerca y arbolitos en lo que sobre por arriba */
-  if (arriba + 3 - iy >= 3) {
-    const cerca = arriba + 1;
+  /* cerca y adornos en lo que sobre por arriba, enteros y con su forma */
+  if (abajo + 3 - iy >= 4) {
+    const cerca = abajo + 1;
     for (let x = ix; x < ix + iw; x++) ponerPieza(x, cerca, elegir(P_CERCA), false);
-    const cuantos = Math.max(1, Math.floor(iw * Math.max(0, cerca - iy) / 30));
+    const cuantos = Math.max(1, Math.floor(iw * Math.max(0, cerca - iy) / 34));
     for (let i = 0; i < cuantos; i++) {
       const a = elegir(P_ARBOLES);
-      const ax = ix + entero(Math.max(1, iw - 1));
-      const ay = iy + entero(Math.max(1, cerca - iy - 1));
-      for (let k = 0; k < 4; k++) ponerPieza(ax + (k & 1), ay + (k >> 1), a[k], false);
+      if (a.w > iw || a.h > cerca - iy) continue;
+      const ax = ix + entero(iw - a.w + 1);
+      const ay = iy + entero(Math.max(1, cerca - iy - a.h));
+      for (let dy = 0; dy < a.h; dy++) {
+        for (let dx = 0; dx < a.w; dx++) ponerPieza(ax + dx, ay + dy, a.t[dy * a.w + dx], false);
+      }
     }
   }
 }
@@ -484,6 +499,23 @@ function nacerTrafico(cuantos) {
         velocidad: 3 + azar() * 3
       });
       break;
+    }
+  }
+}
+
+/* Si un vehículo te alcanza, se acabó. */
+function revisarAtropello() {
+  if (juego.estado !== "jugando") return;
+  for (const v of trafico) {
+    if (Math.abs(v.x - jugador.x) < 0.7 && Math.abs(v.y - jugador.y) < 0.7) {
+      juego.estado = "despedido";
+      mostrarCapa(juego.fase === 0 ? "¡Te han atropellado!" : "¡Has chocado!",
+        juego.fase === 0
+          ? "Un coche no te vio cruzar."
+          : "Te lo llevaste por delante y el reparto se acabó.",
+        "Volver a empezar",
+        [["Pizzas entregadas", juego.entregas], ["Tu récord", juego.record]]);
+      return;
     }
   }
 }
@@ -607,6 +639,8 @@ function actualizar(dt) {
   juego.tiempo += dt;
 
   moverTrafico(dt);
+  revisarAtropello();
+  if (juego.estado !== "jugando") return;
 
   /* movimiento libre: se empuja en las dos direcciones que estén pulsadas */
   let mx = 0, my = 0;
@@ -719,10 +753,11 @@ function apuntar(sitio, cx, cy, paso, texto) {
 function ponerSprite(nombre, x, y, veces) {
   const n = indice[nombre];
   if (n === undefined) return;
-  const lado = TAM * escala * veces;
-  const centrado = (TAM * escala - lado) / 2;
-  ctx.drawImage(ATLAS_SPRITES, n * TAM, 0, TAM, TAM,
-                Math.round(x + centrado), Math.round(y + centrado), lado, lado);
+  const cuerpo = TAM * escala * veces;
+  const total = CELDA * escala * veces;
+  const centrado = (TAM * escala - cuerpo) / 2 - escala * veces;
+  ctx.drawImage(ATLAS_SPRITES, n * CELDA, 0, CELDA, CELDA,
+                Math.round(x + centrado), Math.round(y + centrado), total, total);
 }
 
 function nombreDelJugador() {
@@ -769,9 +804,15 @@ function dibujar() {
     ponerSprite(nombre, aX(v.x - 0.5), aY(v.y - 0.5), 1);
   }
 
+  /* el chef espera en la puerta de la pizzería, perfilado para que se vea */
+  if (ciudad.pizzeria) {
+    ponerSprite("con_pizza_abajo_quieto",
+                aX(ciudad.pizzeria.x), aY(ciudad.pizzeria.y), 1);
+  }
+
   ponerSprite(nombreDelJugador(), aX(jugador.x - 0.5), aY(jugador.y - 0.5), fase().escala);
 
-  ctx.font = "800 " + Math.round(11 + escala) + "px Nunito, system-ui, sans-serif";
+  ctx.font = Math.round(7 + escala * 2) + "px Silkscreen, monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (const p of juego.pizzas) {

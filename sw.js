@@ -1,7 +1,7 @@
 /* Stumpffia service worker.
    Sube el número de CACHE cada vez que publiques cambios. */
 
-var CACHE = "stumpffia-v12";
+var CACHE = "stumpffia-v13";
 
 var ESENCIALES = [
   "/",
@@ -11,6 +11,8 @@ var ESENCIALES = [
   "/assets/js/app.js",
   "/assets/js/games.js",
   "/assets/fonts/nunito-latin.woff2",
+  "/assets/fonts/silkscreen.woff2",
+  "/assets/css/pixel.css",
   "/assets/fonts/nunito-latin-ext.woff2",
   "/assets/img/logo.png",
   "/assets/img/logo-96.png",

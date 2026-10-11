@@ -1,0 +1,11 @@
+/* Silkscreen — SIL Open Font License 1.1 (uso comercial permitido).
+   La licencia completa está en /assets/fonts/OFL-silkscreen.txt
+   Solo la usan los juegos; la portada sigue con Nunito. */
+
+@font-face {
+  font-family: "Silkscreen";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/silkscreen.woff2") format("woff2");
+}

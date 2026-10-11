@@ -179,7 +179,7 @@ let CALLE = -1, RAYA_V = -1, RAYA_H = -1;
 
 /* ───────── pasto, árboles y cerca ───────── */
 
-const pasto = new Set(), arboles = [], cerca = new Set();
+const pasto = new Set(), cerca = new Set();
 
 for (let fy = 0; fy < filas; fy++) {
   for (let fx = 0; fx < columnas; fx++) {
@@ -201,20 +201,54 @@ for (let fy = 0; fy < filas; fy++) {
   }
 }
 
-/* árboles y arbustos: trozos de 2x2 con bastante dibujo dentro */
+/* Árboles, arbustos y flores ENTEROS. Antes se recortaban trozos de 2x2
+   a ciegas y salían medio cortados; ahora se busca cada mancha conectada
+   de dibujo y se toma su caja completa. */
+const arboles = [];
 const vistosArbol = new Set();
+
 for (let fy = 0; fy < filas; fy++) {
   for (let fx = 0; fx < columnas; fx++) {
-    for (let by = 2; by <= 6; by++) {
-      for (let bx = 2; bx < MANZANA - 3; bx++) {
-        const t = [[0,0],[1,0],[0,1],[1,1]].map(([dx, dy]) =>
-          bitsDe(...enManzana(fx, fy, bx + dx, by + dy)));
-        const total = t.reduce((a, b) => a + unosDe(b), 0);
-        if (total < 80 || total > 420) continue;
-        const firma = t.map((b) => b.toString("base64")).join("|");
+    const px0 = (fx * UNIDAD + CALZADA + 2) * TAM, px1 = (fx * UNIDAD + CALZADA + MANZANA - 2) * TAM;
+    const py0 = (fy * UNIDAD + CALZADA + 2) * TAM, py1 = (fy * UNIDAD + CALZADA + 8) * TAM;
+    const visto = new Set();
+
+    for (let y = py0; y < py1; y++) {
+      for (let x = px0; x < px1; x++) {
+        const i = y * img.w + x;
+        if (!claro[i] || visto.has(i)) continue;
+        const cola = [i]; visto.add(i);
+        let minX = x, maxX = x, minY = y, maxY = y, n = 0;
+        while (cola.length) {
+          const p = cola.pop(); n++;
+          const qx = p % img.w, qy = (p / img.w) | 0;
+          if (qx < minX) minX = qx;
+          if (qx > maxX) maxX = qx;
+          if (qy < minY) minY = qy;
+          if (qy > maxY) maxY = qy;
+          for (const d of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+            const nx = qx + d[0], ny = qy + d[1];
+            if (nx < px0 || ny < py0 || nx >= px1 || ny >= py1) continue;
+            const q = ny * img.w + nx;
+            if (claro[q] && !visto.has(q)) { visto.add(q); cola.push(q); }
+          }
+        }
+        if (n < 25) continue;                    // un punto suelto de pasto
+
+        /* la caja, ajustada a casillas enteras */
+        const tx0 = Math.floor(minX / TAM), ty0 = Math.floor(minY / TAM);
+        const tx1 = Math.floor(maxX / TAM), ty1 = Math.floor(maxY / TAM);
+        const w = tx1 - tx0 + 1, h = ty1 - ty0 + 1;
+        if (w > 4 || h > 4) continue;            // eso ya no es un arbolito
+
+        const sello = [];
+        for (let ty = ty0; ty <= ty1; ty++) {
+          for (let tx = tx0; tx <= tx1; tx++) sello.push(casilla(tx, ty));
+        }
+        const firma = w + "x" + h + ":" + sello.join(",");
         if (vistosArbol.has(firma)) continue;
         vistosArbol.add(firma);
-        arboles.push(t.map(registrar));
+        arboles.push({ w: w, h: h, t: sello });
       }
     }
   }
@@ -244,7 +278,12 @@ for (let fy = 0; fy < filas; fy++) {
       const firma = sello.join(",");
       if (vistasCasa.has(firma)) continue;
       vistasCasa.add(firma);
-      casas.push(sello);
+      /* Qué casillas estorban de verdad: las del cuerpo que tienen dibujo.
+         Una casilla vacía del sello no puede tener caja de choque. */
+      const macizo = sello.map(function (n, k) {
+        return (k < 6 * ANCHO_CASA && unosDe(piezas[n]) >= 30) ? 1 : 0;
+      });
+      casas.push({ t: sello, m: macizo });
     }
   }
 }
@@ -258,9 +297,13 @@ for (let dy = 0; dy < ALTO_CASA; dy++) {
     pizzeria.push(casilla(...enManzana(pizzeriaFx, pizzeriaFy, 2 + dx, 10 + dy)));
   }
 }
+const pizzeriaMacizo = pizzeria.map(function (n, k) {
+  return (k < 6 * ANCHO_PIZZERIA && unosDe(piezas[n]) >= 30) ? 1 : 0;
+});
 
 console.log(`piezas distintas: ${piezas.length} (${piezas.length * 32} bytes)`);
-console.log(`pasto: ${pasto.size} · cerca: ${cerca.size} · árboles: ${arboles.length} · casas: ${casas.length}`);
+console.log(`pasto: ${pasto.size} · cerca: ${cerca.size} · adornos: ${arboles.length} · casas: ${casas.length}`);
+console.log('tamaños de adorno: ' + [...new Set(arboles.map(a => a.w + 'x' + a.h))].join(' '));
 console.log(`pizzería: manzana ${pizzeriaFx + 1},${pizzeriaFy + 1}`);
 
 /* ───────── salida ───────── */
@@ -282,6 +325,8 @@ const bloque =
   `const P_CASAS = ${JSON.stringify(casas)};\n` +
   `const P_PIZZERIA_ANCHO = ${ANCHO_PIZZERIA};\n` +
   `const P_PIZZERIA = ${JSON.stringify(pizzeria)};\n` +
+  `const P_PIZZERIA_MACIZO = ${JSON.stringify(pizzeriaMacizo)};
+` +
   `${FIN}`;
 
 const html = fs.readFileSync(DESTINO, "utf8");
