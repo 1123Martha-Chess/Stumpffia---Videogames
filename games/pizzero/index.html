@@ -11,25 +11,6 @@
 <link rel="stylesheet" href="/assets/css/pixel.css">
 <link rel="stylesheet" href="/assets/css/consola.css">
 <style>
-  /* La tarjeta tiene que caber ENTERA en la pantalla del aparato. */
-  .tarjeta {
-    width:100%; max-width:430px; max-height:100%;
-    padding:14px 16px; text-align:center;
-    background:var(--tarjeta);
-    box-shadow:inset 0 0 0 3px var(--claro);
-    display:flex; flex-direction:column; gap:8px;
-    overflow:hidden;
-  }
-  .tarjeta h1 { margin:0; font-size:clamp(14px,3.4vh,24px); line-height:1.2; }
-  .tarjeta p { margin:0; color:var(--apagado); font-size:clamp(8px,1.5vh,11px); line-height:1.6; }
-  .tarjeta button {
-    width:100%; min-height:clamp(30px,5vh,44px); margin:2px 0 0;
-    border:none; cursor:pointer;
-    font:inherit; font-size:clamp(9px,1.8vh,13px);
-    background:var(--claro); color:var(--marino);
-    box-shadow:4px 4px 0 var(--bajo);
-  }
-  .tarjeta button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--bajo); }
   /* las reglas: al principio se ven grandes, en pausa no estorban */
   #capa-reglas {
     margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
@@ -38,8 +19,8 @@
     overflow:auto; min-height:0;
   }
   #capa-reglas.oculto { display:none; }
-  #capa-reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-  #capa-reglas span { color:var(--apagado); }
+  #capa-reglas > div {  display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas > div > span {  color:var(--apagado); }
   #capa-reglas b, #capa-reglas kbd, #capa-reglas em {
     font:inherit; font-style:normal; white-space:nowrap; color:var(--claro);
   }
@@ -51,8 +32,6 @@
     --apagado:#8FB4D8; --borde:rgba(126,200,242,.18);
   }
 
-
-
 </style>
 </head>
 <body>
@@ -63,14 +42,6 @@
 
     <div class="pantalla">
       <canvas id="lienzo"></canvas>
-      <div class="capa" id="capa">
-        <div class="tarjeta">
-          <h1 id="capa-titulo">Pizzero</h1>
-          <p id="capa-texto"></p>
-          <button id="capa-boton">Empezar el turno</button>
-          <div class="reglas" id="capa-reglas"></div>
-        </div>
-      </div>
     </div>
 
     <div class="datos" id="hud">
@@ -102,6 +73,14 @@
     <div class="acciones">
       <button class="accion chico" id="btn-pausa2">II</button>
     </div>
+  </div>
+</div>
+<div class="capa" id="capa">
+  <div class="tarjeta">
+    <h1 id="capa-titulo">Pizzero</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Empezar el turno</button>
+    <div class="reglas" id="capa-reglas"></div>
   </div>
 </div>
 
@@ -565,6 +544,14 @@ function guardarRecord(v) {
 }
 
 function fase() { return FASES[juego.fase]; }
+
+/* Con el auto en la mano, cada 15 entregas te fían una pizza más: 4, 5, 6,
+   7... sin tope. */
+function capacidad() {
+  const extra = juego.entregas >= META_AUTO
+    ? Math.floor((juego.entregas - META_AUTO) / 15) : 0;
+  return FASES[juego.fase].capacidad + extra;
+}
 function plazoPizza() { return SEGUNDOS_PIZZA - juego.fase * RESTA_POR_FASE; }
 
 /* ───────────────── Choques ───────────────── */
@@ -589,7 +576,7 @@ function puertaLibre() {
 }
 
 function recoger() {
-  while (juego.pizzas.length < fase().capacidad) {
+  while (juego.pizzas.length < capacidad()) {
     const casa = puertaLibre();
     if (!casa) break;
     juego.pizzas.push({ casa: { x: casa.x, y: casa.y }, queda: plazoPizza() });
@@ -814,7 +801,7 @@ function dibujar() {
 
   /* El chef solo está cuando tiene pizza que darte: en cuanto le recoges
      la última se mete dentro, y vuelve a salir al entregar una. */
-  if (ciudad.pizzeria && juego.pizzas.length < fase().capacidad) {
+  if (ciudad.pizzeria && juego.pizzas.length < capacidad()) {
     ponerSprite("con_pizza_abajo_quieto",
                 aX(ciudad.pizzeria.x), aY(ciudad.pizzeria.y), 1);
   }
@@ -827,7 +814,7 @@ function dibujar() {
   for (const p of juego.pizzas) {
     apuntar(p.casa, aX(p.casa.x + 0.5), aY(p.casa.y + 0.5), paso, reloj(p.queda));
   }
-  if (ciudad.pizzeria && juego.pizzas.length < fase().capacidad) {
+  if (ciudad.pizzeria && juego.pizzas.length < capacidad()) {
     apuntar(ciudad.pizzeria, aX(ciudad.pizzeria.x + 0.5), aY(ciudad.pizzeria.y + 0.5), paso, "PIZZERIA");
   }
 }
@@ -900,6 +887,19 @@ const REGLAS = [
 ];
 
 function mostrarCapa(titulo, texto, boton, filas) {
+  /* La capa vive fuera de la carcasa, porque el recorte de las esquinas
+     recortaba también lo que tuviera dentro. Para la pausa se encaja a mano
+     encima del tubo. */
+  const dentro = !!window.__enPantalla;
+  window.__enPantalla = false;
+  capa.classList.toggle("dentro", dentro);
+  if (dentro) {
+    const p = document.querySelector(".pantalla").getBoundingClientRect();
+    capa.style.left = p.left + 4 + "px"; capa.style.top = p.top + 4 + "px";
+    capa.style.width = p.width - 8 + "px"; capa.style.height = p.height - 8 + "px";
+  } else {
+    capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  }
   const bloqueReglas = document.getElementById("capa-reglas");
   if (bloqueReglas) bloqueReglas.classList.toggle("oculto", !window.__verReglas);
   window.__verReglas = false;
@@ -936,6 +936,7 @@ capaBoton.addEventListener("click", botonCapa);
 function alternarPausa() {
   if (juego.estado === "jugando") {
     juego.estado = "pausa";
+    window.__enPantalla = true;
     mostrarCapa("Pausa", "", "Seguir repartiendo", null);
   } else if (juego.estado === "pausa") botonCapa();
 }
@@ -1034,5 +1035,6 @@ mostrarCapa("Pizzero",
   "Empezar el turno", null);
 requestAnimationFrame(cuadro);
 </script>
+
 </body>
 </html>

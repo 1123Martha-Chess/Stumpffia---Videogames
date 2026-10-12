@@ -1,7 +1,7 @@
 /* Stumpffia service worker.
    Sube el número de CACHE cada vez que publiques cambios. */
 
-var CACHE = "stumpffia-v18";
+var CACHE = "stumpffia-v21";
 
 var ESENCIALES = [
   "/",
@@ -19,6 +19,7 @@ var ESENCIALES = [
   "/assets/img/logo-96.png",
   "/assets/img/icon-192.png",
   "/assets/img/icon-512.png",
+  "/games/renacuajo/",
   "/offline.html"
 ];
 

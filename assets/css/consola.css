@@ -27,11 +27,15 @@ body {
   display:flex; align-items:center; justify-content:center;
 }
 
-/* esquinas con escalón, como el píxel manda */
-.esquinas {
+/* Esquinas en escalón de tres peldaños: una diagonal sola se ve suave,
+   tres peldaños se ven de píxeles. */
+.escalon {
   clip-path:polygon(
-    8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px),
-    calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+    9px 0, calc(100% - 9px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 6px,
+    100% 9px, 100% calc(100% - 9px), calc(100% - 3px) calc(100% - 6px),
+    calc(100% - 6px) calc(100% - 3px), calc(100% - 9px) 100%,
+    9px 100%, 6px calc(100% - 3px), 3px calc(100% - 6px),
+    0 calc(100% - 9px), 0 9px, 3px 6px, 6px 3px);
 }
 
 /* trama de puntos cuadrados para las rejillas de altavoz */
@@ -60,8 +64,11 @@ body {
     inset 4px 4px 0 3px var(--alto),
     inset -4px -4px 0 3px var(--bajo);
   clip-path:polygon(
-    10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
-    calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+    12px 0, calc(100% - 12px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 8px,
+    100% 12px, 100% calc(100% - 12px), calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 4px), calc(100% - 12px) 100%,
+    12px 100%, 8px calc(100% - 4px), 4px calc(100% - 8px),
+    0 calc(100% - 12px), 0 12px, 4px 8px, 8px 4px);
 }
 .lateral { display:none; }
 
@@ -87,13 +94,19 @@ body {
     transparent 37% 41%, rgba(126,200,242,.05) 41% 44%, transparent 44%);
 }
 
-/* los menús viven DENTRO de la pantalla */
-.pantalla .capa {
-  position:absolute; inset:4px; z-index:10;
-  display:none; align-items:center; justify-content:center; padding:8px;
+/* Los menús ocupan la pantalla ENTERA del aparato. Solo la pausa se queda
+   dentro del tubo, que es donde tiene sentido. */
+.capa {
+  position:fixed; inset:0; z-index:40;
+  display:none; align-items:center; justify-content:center; padding:16px;
+  background:var(--marino);
+  overflow:auto;
+}
+.capa.visible { display:flex; }
+.capa.dentro {
+  inset:auto; padding:8px;
   background:rgba(11,26,74,.93);
 }
-.pantalla .capa.visible { display:flex; }
 
 /* ───── la tira de datos ───── */
 
@@ -178,7 +191,7 @@ body {
   transform:translate(-50%,-50%);
   background:var(--carcasa);
   box-shadow:inset 0 0 0 2px var(--bajo);
-  clip-path:polygon(6px 0,14px 0,20px 6px,20px 14px,14px 20px,6px 20px,0 14px,0 6px);
+  clip-path:polygon(7px 0,13px 0,16px 3px,20px 7px,20px 13px,16px 17px,13px 20px,7px 20px,4px 17px,0 13px,0 7px,4px 3px);
 }
 .cruz button { grid-area:var(--pos); }
 .mando button {
@@ -195,7 +208,8 @@ body {
 .accion {
   width:96px; height:96px; font-size:14px;
   clip-path:polygon(
-    30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+    34% 0,66% 0, 80% 6%,92% 20%, 100% 34%,100% 66%, 92% 80%,80% 92%,
+    66% 100%,34% 100%, 20% 92%,8% 80%, 0 66%,0 34%, 8% 20%,20% 8%);
 }
 .accion.chico { width:62px; height:62px; font-size:10px; }
 
@@ -259,7 +273,9 @@ body {
     width:76px; height:76px; flex:none; position:relative;
     background:var(--carcasa);
     box-shadow:inset 0 0 0 3px var(--claro), inset 4px 4px 0 3px var(--alto), inset -4px -4px 0 3px var(--bajo);
-    clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+    clip-path:polygon(
+      34% 0,66% 0, 80% 6%,92% 20%, 100% 34%,100% 66%, 92% 80%,80% 92%,
+      66% 100%,34% 100%, 20% 92%,8% 80%, 0 66%,0 34%, 8% 20%,20% 8%);
   }
   .perilla::after {           /* la ranura */
     content:""; position:absolute; left:50%; top:22%;
@@ -299,3 +315,50 @@ body {
 @media (max-width: 819px), (max-height: 539px) {
   .centro { display:contents; }
 }
+
+/* ═════════════════ las pantallas de menú ═════════════════ */
+
+.capa .tarjeta {
+  width:100%; max-width:560px; max-height:100%;
+  padding:18px 20px; text-align:center;
+  background:var(--tarjeta);
+  box-shadow:inset 0 0 0 4px var(--claro);
+  display:flex; flex-direction:column; gap:10px;
+  overflow:auto;
+}
+.capa.dentro .tarjeta { max-width:430px; padding:14px 16px; gap:8px; box-shadow:inset 0 0 0 3px var(--claro); }
+
+/* ═════════════════ ajustes antes de jugar ═════════════════ */
+
+.ajustes { display:grid; gap:10px; margin-top:4px; text-align:left; }
+.ajuste { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ajuste > span { font-size:10px; color:var(--apagado); }
+.opciones { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
+.opciones button {
+  font:inherit; font-size:10px; padding:6px 10px; cursor:pointer;
+  color:var(--claro); background:var(--carcasa); border:none;
+  box-shadow:inset 0 0 0 2px var(--borde);
+}
+.opciones button[aria-pressed="true"] {
+  background:var(--claro); color:var(--marino);
+  box-shadow:inset 0 0 0 2px var(--claro);
+}
+.contador { display:flex; align-items:center; gap:8px; }
+.contador b { min-width:46px; text-align:center; font-size:13px; }
+.contador button { width:30px; height:30px; padding:0; font-size:13px; }
+
+.capa .tarjeta h1 { margin:0; font-size:clamp(16px,3.2vh,26px); line-height:1.25; }
+.capa .tarjeta p { margin:0; color:var(--apagado); font-size:clamp(9px,1.6vh,12px); line-height:1.7; }
+.capa .tarjeta button {
+  width:100%; min-height:clamp(32px,5vh,46px); margin:2px 0 0;
+  border:none; cursor:pointer;
+  font:inherit; font-size:clamp(10px,1.9vh,14px);
+  background:var(--claro); color:var(--marino);
+  box-shadow:4px 4px 0 var(--bajo);
+}
+.capa .tarjeta button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--bajo); }
+/* dentro de los ajustes, los botones vuelven a su tamaño */
+.capa .tarjeta .ajustes button { width:auto; min-height:0; margin:0; box-shadow:inset 0 0 0 2px var(--borde); }
+.capa .tarjeta .ajustes button:active { transform:none; }
+.capa .tarjeta .opciones button[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--claro); }
+.capa .tarjeta .modo { width:100%; }

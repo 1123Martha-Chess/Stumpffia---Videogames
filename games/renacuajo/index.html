@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Renacuajo — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
+<style>
+  #capa-reglas {
+    margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
+    display:grid; gap:5px; font-size:10px; text-align:left;
+  }
+  #capa-reglas.oculto { display:none; }
+  #capa-reglas > div {  display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas > div > span {  color:var(--apagado); }
+  .modos { display:grid; gap:5px; width:100%; }
+  .modo {
+    display:flex; align-items:flex-start; gap:8px; text-align:left;
+    padding:7px 9px; cursor:pointer;
+    background:var(--carcasa); box-shadow:inset 0 0 0 2px var(--borde);
+  }
+  .modo[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--claro); background:var(--tubo); }
+  .modo b { font-size:10px; color:var(--claro); white-space:nowrap; }
+  .modo i { font-style:normal; font-size:8px; color:var(--apagado); line-height:1.5; }
+  .modo-texto { display:flex; flex-direction:column; gap:2px; }
+  .marca { width:13px; height:13px; flex:none; margin-top:1px; box-shadow:inset 0 0 0 2px var(--borde); }
+  .modo[aria-pressed="true"] .marca { background:var(--claro); box-shadow:inset 0 0 0 2px var(--claro); }
+  /* el segundo mando del multijugador */
+  #mando2 { display:none; }
+  body.dos #mando2 { display:flex; }
+  @media (min-width: 820px) and (min-height: 540px) { #mando2 { display:none !important; } }
+
+  /* Los ajustes mandan sobre los estilos generales de la tarjeta. */
+  #capa-reglas > div.ajustes { display:grid; gap:12px; }
+  .ajustes .ajuste { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .capa .tarjeta .ajustes .modo {
+    width:100%; background:var(--carcasa); color:var(--claro);
+    min-height:0; margin:0; box-shadow:inset 0 0 0 2px var(--borde);
+    display:flex; align-items:flex-start; gap:8px; text-align:left; padding:8px 10px;
+  }
+  .capa .tarjeta .ajustes .modo[aria-pressed="true"] {
+    background:var(--tubo); box-shadow:inset 0 0 0 2px var(--claro);
+  }
+  .capa .tarjeta .ajustes .opciones button,
+  .capa .tarjeta .ajustes .contador button {
+    width:auto; background:var(--carcasa); color:var(--claro); min-height:0; margin:0;
+  }
+  .capa .tarjeta .ajustes .opciones button[aria-pressed="true"] {
+    background:var(--claro); color:var(--marino);
+  }
+  .capa .tarjeta .ajustes .contador button { width:32px; height:32px; }
+</style>
+</head>
+<body>
+
+<div class="consola">
+  <div class="lateral izq" aria-hidden="true"></div>
+  <div class="centro">
+    <div class="pantalla">
+      <canvas id="lienzo"></canvas>
+    </div>
+
+    <div class="datos" id="hud">
+      <div class="ficha"><span>LARGO</span><b id="largo">1</b></div>
+      <div class="ficha"><span>ALGAS</span><b id="comidas">0</b></div>
+      <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
+      <div class="ficha" id="ficha-extra"><span>PASOS</span><b id="extra">—</b></div>
+    </div>
+
+    <div class="botonera">
+      <button id="btn-pausa">PAUSA</button>
+      <button id="btn-ajustes">AJUSTES</button>
+      <a href="/">SALIR</a>
+    </div>
+  </div>
+  <div class="lateral der" aria-hidden="true">
+    <div class="perilla" style="--giro:-38deg"></div>
+    <div class="perilla" style="--giro:22deg"></div>
+    <div class="perilla" style="--giro:65deg"></div>
+    <div class="encendido">&#9211;</div>
+  </div>
+
+  <div class="mando" id="mando">
+    <div class="cruz">
+      <button data-tecla="KeyW" style="--pos:1/2">▲</button>
+      <button data-tecla="KeyA" style="--pos:2/1">◀</button>
+      <button data-tecla="KeyD" style="--pos:2/3">▶</button>
+      <button data-tecla="KeyS" style="--pos:3/2">▼</button>
+    </div>
+    <div class="cruz" id="mando2">
+      <button data-tecla="KeyI" style="--pos:1/2">▲</button>
+      <button data-tecla="KeyJ" style="--pos:2/1">◀</button>
+      <button data-tecla="KeyL" style="--pos:2/3">▶</button>
+      <button data-tecla="KeyK" style="--pos:3/2">▼</button>
+    </div>
+  </div>
+</div>
+<div class="capa" id="capa">
+  <div class="tarjeta">
+    <h1 id="capa-titulo">Renacuajo</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Jugar</button>
+    <div id="capa-reglas"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   RENACUAJO — Stumpffia
+   La serpiente de toda la vida, pero es un renacuajo comiendo algas.
+   Un solo archivo, sin librerías, sin peticiones de red.
+   ════════════════════════════════════════════════════════════════════ */
+
+const MARINO = "#0B1A4A";
+const CLARO  = "#7EC8F2";
+const MEDIO  = "#2E53A6";
+
+/* ───────────────── Ajustes ───────────────── */
+
+const TAMANOS = [
+  { nombre: "12 × 12", w: 12, h: 12 },
+  { nombre: "20 × 15", w: 20, h: 15 },
+  { nombre: "30 × 20", w: 30, h: 20 },
+  { nombre: "40 × 30", w: 40, h: 30 },
+  { nombre: "60 × 40", w: 60, h: 40 },
+  { nombre: "100 × 100", w: 100, h: 100 }
+];
+
+const MODOS = [
+  { id: "puentes",   nombre: "Puentes",      texto: "Unos cuantos puentes por los que se cruza por encima del renacuajo." },
+  { id: "oscuridad", nombre: "Oscuridad",    texto: "Solo se ve un haz de luz alrededor de la cabeza." },
+  { id: "doble",     nombre: "Multijugador", texto: "Un segundo renacuajo con I J K L." },
+  { id: "misterio",  nombre: "Alga misteriosa", texto: "Algunas algas no se sabe qué hacen hasta comerlas." },
+  { id: "voltear",   nombre: "Da la vuelta", texto: "Con cada alga, la cola pasa a ser la cabeza." },
+  { id: "pasos",     nombre: "Pasos contados", texto: "Tienes un número de pasos para llegar al alga siguiente." }
+];
+
+const ajustes = {
+  tamano: 2,
+  algas: 3,
+  activos: {}      // qué modos están encendidos
+};
+
+function leerAjustes() {
+  try {
+    const g = JSON.parse(localStorage.getItem("stumpffia:renacuajo:ajustes") || "{}");
+    if (typeof g.tamano === "number") ajustes.tamano = Math.min(TAMANOS.length - 1, Math.max(0, g.tamano));
+    if (typeof g.algas === "number") ajustes.algas = Math.min(20, Math.max(1, g.algas));
+    if (g.activos) ajustes.activos = g.activos;
+  } catch (e) {}
+}
+function guardarAjustes() {
+  try { localStorage.setItem("stumpffia:renacuajo:ajustes", JSON.stringify(ajustes)); } catch (e) {}
+}
+const modoActivo = (id) => !!ajustes.activos[id];
+
+function leerRecord() {
+  try { return parseInt(localStorage.getItem("stumpffia:renacuajo"), 10) || 0; } catch (e) { return 0; }
+}
+function guardarRecord(v) {
+  try { localStorage.setItem("stumpffia:renacuajo", String(v)); } catch (e) {}
+}
+
+/* ───────────────── Estado ───────────────── */
+
+const DIRS = {
+  arriba:    { dx: 0, dy:-1 },
+  abajo:     { dx: 0, dy: 1 },
+  izquierda: { dx:-1, dy: 0 },
+  derecha:   { dx: 1, dy: 0 }
+};
+const CONTRARIA = { arriba:"abajo", abajo:"arriba", izquierda:"derecha", derecha:"izquierda" };
+
+/* efectos de las algas misteriosas */
+const SORPRESAS = ["congela", "corre", "invierte", "recorta"];
+
+const juego = {
+  estado: "menu",          // menu | ajustes | jugando | pausa | fin
+  ancho: 0, alto: 0,
+  renacuajos: [],
+  algas: [],
+  puentes: [],
+  paso: 0,                 // segundos acumulados
+  comidas: 0,
+  pasosRestantes: 0,
+  record: leerRecord()
+};
+
+function nuevoRenacuajo(x, y, teclas, nombre) {
+  return {
+    cuerpo: [{ x: x, y: y }],
+    dir: "derecha", siguiente: "derecha",
+    teclas: teclas, nombre: nombre,
+    vivo: true, crecer: 2,
+    congelado: 0, rapido: 0, invertido: 0
+  };
+}
+
+/* ───────────────── Tablero ───────────────── */
+
+function libreParaAlga(x, y) {
+  for (const r of juego.renacuajos) {
+    for (const c of r.cuerpo) if (c.x === x && c.y === y) return false;
+  }
+  for (const a of juego.algas) if (a.x === x && a.y === y) return false;
+  for (const p of juego.puentes) if (p.x === x && p.y === y) return false;
+  return true;
+}
+
+function ponerAlga() {
+  for (let intento = 0; intento < 900; intento++) {
+    const x = Math.floor(Math.random() * juego.ancho);
+    const y = Math.floor(Math.random() * juego.alto);
+    if (!libreParaAlga(x, y)) continue;
+    const misteriosa = modoActivo("misterio") && Math.random() < 0.45;
+    juego.algas.push({
+      x: x, y: y,
+      sorpresa: misteriosa ? SORPRESAS[Math.floor(Math.random() * SORPRESAS.length)] : null
+    });
+    return true;
+  }
+  return false;
+}
+
+function ponerPuentes() {
+  juego.puentes = [];
+  if (!modoActivo("puentes")) return;
+  const cuantos = Math.max(2, Math.round(juego.ancho * juego.alto / 90));
+  for (let i = 0; i < cuantos; i++) {
+    for (let intento = 0; intento < 200; intento++) {
+      const x = 1 + Math.floor(Math.random() * (juego.ancho - 2));
+      const y = 1 + Math.floor(Math.random() * (juego.alto - 2));
+      if (!libreParaAlga(x, y)) continue;
+      juego.puentes.push({ x: x, y: y });
+      break;
+    }
+  }
+}
+const hayPuente = (x, y) => juego.puentes.some(function (p) { return p.x === x && p.y === y; });
+
+/* ───────────────── Empezar ───────────────── */
+
+function pasosConcedidos() {
+  return Math.round((juego.ancho + juego.alto) * 1.6);
+}
+
+function empezar() {
+  const t = TAMANOS[ajustes.tamano];
+  juego.ancho = t.w; juego.alto = t.h;
+  juego.algas = [];
+  juego.comidas = 0;
+  juego.paso = 0;
+
+  const y = Math.floor(juego.alto / 2);
+  juego.renacuajos = [nuevoRenacuajo(Math.floor(juego.ancho / 4), y,
+    { KeyW:"arriba", KeyS:"abajo", KeyA:"izquierda", KeyD:"derecha",
+      ArrowUp:"arriba", ArrowDown:"abajo", ArrowLeft:"izquierda", ArrowRight:"derecha" }, "Uno")];
+
+  if (modoActivo("doble")) {
+    const dos = nuevoRenacuajo(Math.floor(juego.ancho * 3 / 4), y,
+      { KeyI:"arriba", KeyK:"abajo", KeyJ:"izquierda", KeyL:"derecha" }, "Dos");
+    dos.dir = dos.siguiente = "izquierda";
+    juego.renacuajos.push(dos);
+  }
+  document.body.classList.toggle("dos", modoActivo("doble"));
+
+  ponerPuentes();
+  for (let i = 0; i < ajustes.algas; i++) ponerAlga();
+  juego.pasosRestantes = pasosConcedidos();
+
+  juego.estado = "jugando";
+  capa.classList.remove("visible");
+  ajustar();
+}
+
+/* ───────────────── Movimiento ───────────────── */
+
+function velocidad(r) {
+  const base = 0.16 - Math.min(0.07, juego.comidas * 0.002);
+  return r.rapido > 0 ? base / 2 : base;
+}
+
+function avanzar(r) {
+  if (!r.vivo) return;
+  if (r.congelado > 0) return;
+
+  r.dir = r.siguiente;
+  const d = DIRS[r.dir];
+  const cabeza = r.cuerpo[0];
+  const nx = cabeza.x + d.dx, ny = cabeza.y + d.dy;
+
+  /* las paredes matan */
+  if (nx < 0 || ny < 0 || nx >= juego.ancho || ny >= juego.alto) { morir(r, "Te diste contra la orilla."); return; }
+
+  /* chocar consigo mismo o con el otro, salvo que haya puente */
+  if (!hayPuente(nx, ny)) {
+    for (const otro of juego.renacuajos) {
+      for (let i = 0; i < otro.cuerpo.length; i++) {
+        const c = otro.cuerpo[i];
+        if (c.x !== nx || c.y !== ny) continue;
+        if (otro === r && i === otro.cuerpo.length - 1 && r.crecer === 0) continue;  // la cola se va
+        morir(r, otro === r ? "Te mordiste la cola." : "Chocaste con el otro renacuajo.");
+        return;
+      }
+    }
+  }
+
+  r.cuerpo.unshift({ x: nx, y: ny });
+
+  const i = juego.algas.findIndex(function (a) { return a.x === nx && a.y === ny; });
+  if (i !== -1) {
+    const alga = juego.algas[i];
+    juego.algas.splice(i, 1);
+    comer(r, alga);
+    ponerAlga();
+  }
+
+  if (r.crecer > 0) r.crecer--;
+  else r.cuerpo.pop();
+}
+
+function comer(r, alga) {
+  juego.comidas++;
+  juego.pasosRestantes = pasosConcedidos();
+
+  if (alga.sorpresa === "congela") r.congelado = 3;
+  else if (alga.sorpresa === "corre") r.rapido = 3;
+  else if (alga.sorpresa === "invierte") r.invertido = 8;
+  else if (alga.sorpresa === "recorta") {
+    for (let k = 0; k < 2 && r.cuerpo.length > 2; k++) r.cuerpo.pop();
+  } else {
+    r.crecer += 1;
+  }
+
+  if (modoActivo("voltear")) {
+    r.cuerpo.reverse();
+    const cabeza = r.cuerpo[0], segundo = r.cuerpo[1] || cabeza;
+    r.dir = r.siguiente =
+      cabeza.x > segundo.x ? "derecha" : cabeza.x < segundo.x ? "izquierda" :
+      cabeza.y > segundo.y ? "abajo" : "arriba";
+  }
+
+  const largo = Math.max.apply(null, juego.renacuajos.map(function (o) { return o.cuerpo.length; }));
+  if (largo > juego.record) { juego.record = largo; guardarRecord(juego.record); }
+}
+
+function morir(r, porque) {
+  r.vivo = false;
+  if (juego.renacuajos.some(function (o) { return o.vivo; })) return;
+  terminar(porque);
+}
+
+function terminar(porque) {
+  juego.estado = "fin";
+  const largo = Math.max.apply(null, juego.renacuajos.map(function (o) { return o.cuerpo.length; }));
+  window.__verReglas = true;
+  mostrarCapa("Se acabó", porque, "Otra vez",
+    [["Algas comidas", juego.comidas], ["Largo máximo", largo], ["Tu récord", juego.record]]);
+}
+
+/* ───────────────── Bucle ───────────────── */
+
+function actualizar(dt) {
+  if (juego.estado !== "jugando") return;
+  juego.paso += dt;
+
+  for (const r of juego.renacuajos) {
+    for (const efecto of ["congelado", "rapido", "invertido"]) {
+      if (r[efecto] > 0) r[efecto] = Math.max(0, r[efecto] - dt);
+    }
+  }
+
+  const r0 = juego.renacuajos[0];
+  if (juego.paso < velocidad(r0)) return;
+  juego.paso = 0;
+
+  for (const r of juego.renacuajos) avanzar(r);
+
+  if (modoActivo("pasos")) {
+    juego.pasosRestantes--;
+    if (juego.pasosRestantes <= 0) terminar("Te quedaste sin pasos.");
+  }
+}
+
+/* ───────────────── Dibujo ───────────────── */
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d", { alpha: false });
+let celda = 10, ox = 0, oy = 0;
+
+function ajustar() {
+  const w = lienzo.clientWidth || 320, h = lienzo.clientHeight || 240;
+  lienzo.width = w; lienzo.height = h;
+  ctx.imageSmoothingEnabled = false;
+  celda = Math.max(2, Math.floor(Math.min(w / juego.ancho, h / juego.alto)));
+  ox = Math.floor((w - juego.ancho * celda) / 2);
+  oy = Math.floor((h - juego.alto * celda) / 2);
+}
+window.addEventListener("resize", ajustar);
+if (window.ResizeObserver) new ResizeObserver(ajustar).observe(lienzo);
+
+function cuadro(x, y, color, encoger) {
+  const m = encoger || 0;
+  ctx.fillStyle = color;
+  ctx.fillRect(ox + x * celda + m, oy + y * celda + m, celda - m * 2, celda - m * 2);
+}
+
+function dibujar() {
+  ctx.fillStyle = MARINO;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+
+  /* la charca */
+  ctx.fillStyle = "#102456";
+  ctx.fillRect(ox, oy, juego.ancho * celda, juego.alto * celda);
+
+  /* la orilla */
+  ctx.strokeStyle = CLARO;
+  ctx.lineWidth = Math.max(2, Math.floor(celda / 5));
+  ctx.strokeRect(ox - ctx.lineWidth / 2, oy - ctx.lineWidth / 2,
+                 juego.ancho * celda + ctx.lineWidth, juego.alto * celda + ctx.lineWidth);
+
+  for (const p of juego.puentes) cuadro(p.x, p.y, MEDIO, Math.floor(celda / 6));
+
+  for (const a of juego.algas) {
+    cuadro(a.x, a.y, a.sorpresa ? MEDIO : CLARO, Math.floor(celda / 4));
+    if (a.sorpresa) cuadro(a.x, a.y, CLARO, Math.floor(celda / 2.6));
+  }
+
+  juego.renacuajos.forEach(function (r, n) {
+    for (let i = r.cuerpo.length - 1; i >= 0; i--) {
+      const c = r.cuerpo[i];
+      const esCabeza = i === 0;
+      const color = !r.vivo ? "#3A5A9A" : (esCabeza ? "#FFFFFF" : (n === 0 ? CLARO : MEDIO));
+      cuadro(c.x, c.y, color, esCabeza ? 0 : Math.floor(celda / 8));
+    }
+  });
+
+  /* el haz de luz del modo oscuridad */
+  if (modoActivo("oscuridad") && juego.estado === "jugando") {
+    const radio = celda * 4.5;
+    ctx.save();
+    ctx.fillStyle = "rgba(11,26,74,.94)";
+    ctx.beginPath();
+    ctx.rect(0, 0, lienzo.width, lienzo.height);
+    for (const r of juego.renacuajos) {
+      if (!r.vivo) continue;
+      const c = r.cuerpo[0];
+      ctx.moveTo(ox + (c.x + 0.5) * celda + radio, oy + (c.y + 0.5) * celda);
+      ctx.arc(ox + (c.x + 0.5) * celda, oy + (c.y + 0.5) * celda, radio, 0, Math.PI * 2, true);
+    }
+    ctx.fill("evenodd");
+    ctx.restore();
+  }
+}
+
+/* ───────────────── Marcador ───────────────── */
+
+const elLargo = document.getElementById("largo");
+const elComidas = document.getElementById("comidas");
+const elRecord = document.getElementById("record");
+const elExtra = document.getElementById("extra");
+const fichaExtra = document.getElementById("ficha-extra");
+
+function pintarMarcador() {
+  const r0 = juego.renacuajos[0];
+  elLargo.textContent = r0 ? r0.cuerpo.length : 0;
+  elComidas.textContent = juego.comidas;
+  elRecord.textContent = juego.record;
+
+  if (modoActivo("pasos")) {
+    fichaExtra.firstChild.textContent = "PASOS";
+    elExtra.textContent = Math.max(0, juego.pasosRestantes);
+    fichaExtra.classList.toggle("urgente", juego.pasosRestantes < 12 && juego.estado === "jugando");
+  } else if (modoActivo("doble") && juego.renacuajos[1]) {
+    fichaExtra.firstChild.textContent = "LARGO DOS";
+    elExtra.textContent = juego.renacuajos[1].cuerpo.length;
+    fichaExtra.classList.remove("urgente");
+  } else {
+    fichaExtra.firstChild.textContent = "MODOS";
+    const n = Object.keys(ajustes.activos).filter(modoActivo).length;
+    elExtra.textContent = n ? n : "—";
+    fichaExtra.classList.remove("urgente");
+  }
+}
+
+/* ───────────────── Pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+const capaReglas = document.getElementById("capa-reglas");
+
+function mostrarCapa(titulo, texto, boton, filas) {
+  /* La capa vive fuera de la carcasa, porque el recorte de las esquinas
+     recortaba también lo que tuviera dentro. Para la pausa se encaja a mano
+     encima del tubo. */
+  const dentro = !!window.__enPantalla;
+  window.__enPantalla = false;
+  capa.classList.toggle("dentro", dentro);
+  if (dentro) {
+    const p = document.querySelector(".pantalla").getBoundingClientRect();
+    capa.style.left = p.left + 4 + "px"; capa.style.top = p.top + 4 + "px";
+    capa.style.width = p.width - 8 + "px"; capa.style.height = p.height - 8 + "px";
+  } else {
+    capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  }
+  capaReglas.classList.toggle("oculto", !window.__verReglas);
+  window.__verReglas = false;
+
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capaBoton.hidden = false;
+  capaReglas.innerHTML = "";
+  for (const fila of filas || []) {
+    const d = document.createElement("div");
+    const s = document.createElement("span"); s.textContent = fila[0];
+    const b = document.createElement("b"); b.textContent = fila[1];
+    d.appendChild(s); d.appendChild(b);
+    capaReglas.appendChild(d);
+  }
+  capa.classList.add("visible");
+}
+
+/* ───────────────── La pantalla de ajustes ───────────────── */
+
+function abrirAjustes() {
+  juego.estado = "ajustes";
+  capa.classList.remove("dentro");
+  capaTitulo.textContent = "Ajustes";
+  capaTexto.textContent = "La charca, las algas y los modos. Se puede mezclar lo que quieras.";
+  capaBoton.textContent = "Jugar";
+  capaBoton.hidden = false;
+  capaReglas.classList.remove("oculto");
+  capaReglas.innerHTML = "";
+
+  /* tamaño de la charca */
+  const fTam = document.createElement("div");
+  fTam.className = "ajuste";
+  const eTam = document.createElement("span"); eTam.textContent = "Charca";
+  const oTam = document.createElement("div"); oTam.className = "opciones";
+  TAMANOS.forEach(function (t, i) {
+    const b = document.createElement("button");
+    b.textContent = t.nombre;
+    b.setAttribute("aria-pressed", String(i === ajustes.tamano));
+    b.addEventListener("click", function () {
+      ajustes.tamano = i; guardarAjustes(); abrirAjustes();
+    });
+    oTam.appendChild(b);
+  });
+  fTam.appendChild(eTam); fTam.appendChild(oTam);
+
+  /* cuántas algas */
+  const fAlg = document.createElement("div");
+  fAlg.className = "ajuste";
+  const eAlg = document.createElement("span"); eAlg.textContent = "Algas a la vez";
+  const cAlg = document.createElement("div"); cAlg.className = "contador";
+  const menos = document.createElement("button"); menos.textContent = "−";
+  const valor = document.createElement("b"); valor.textContent = ajustes.algas;
+  const mas = document.createElement("button"); mas.textContent = "+";
+  menos.addEventListener("click", function () {
+    ajustes.algas = Math.max(1, ajustes.algas - 1); valor.textContent = ajustes.algas; guardarAjustes();
+  });
+  mas.addEventListener("click", function () {
+    ajustes.algas = Math.min(20, ajustes.algas + 1); valor.textContent = ajustes.algas; guardarAjustes();
+  });
+  cAlg.appendChild(menos); cAlg.appendChild(valor); cAlg.appendChild(mas);
+  fAlg.appendChild(eAlg); fAlg.appendChild(cAlg);
+
+  /* los modos, que se encienden sueltos o mezclados */
+  const lista = document.createElement("div");
+  lista.className = "modos";
+  for (const m of MODOS) {
+    const b = document.createElement("button");
+    b.className = "modo";
+    b.setAttribute("aria-pressed", String(modoActivo(m.id)));
+    const marca = document.createElement("span"); marca.className = "marca";
+    const texto = document.createElement("span"); texto.className = "modo-texto";
+    const nombre = document.createElement("b"); nombre.textContent = m.nombre;
+    const detalle = document.createElement("i"); detalle.textContent = m.texto;
+    texto.appendChild(nombre); texto.appendChild(detalle);
+    b.appendChild(marca); b.appendChild(texto);
+    b.addEventListener("click", function () {
+      ajustes.activos[m.id] = !modoActivo(m.id);
+      guardarAjustes();
+      b.setAttribute("aria-pressed", String(modoActivo(m.id)));
+    });
+    lista.appendChild(b);
+  }
+
+  const ajusteCaja = document.createElement("div");
+  ajusteCaja.className = "ajustes";
+  ajusteCaja.appendChild(fTam);
+  ajusteCaja.appendChild(fAlg);
+  ajusteCaja.appendChild(lista);
+  capaReglas.appendChild(ajusteCaja);
+
+  capa.classList.add("visible");
+}
+
+function botonCapa() {
+  if (juego.estado === "pausa") { juego.estado = "jugando"; capa.classList.remove("visible"); }
+  else empezar();
+}
+capaBoton.addEventListener("click", botonCapa);
+document.getElementById("btn-ajustes").addEventListener("click", abrirAjustes);
+document.getElementById("btn-pausa").addEventListener("click", function () {
+  if (juego.estado === "jugando") {
+    juego.estado = "pausa";
+    window.__enPantalla = true;
+    mostrarCapa("Pausa", "", "Seguir", null);
+  } else botonCapa();
+});
+
+/* ───────────────── Controles ───────────────── */
+
+function pulsar(code) {
+  if (juego.estado !== "jugando") return;
+  for (const r of juego.renacuajos) {
+    let quiere = r.teclas[code];
+    if (!quiere) continue;
+    if (r.invertido > 0) quiere = CONTRARIA[quiere];
+    if (r.cuerpo.length > 1 && quiere === CONTRARIA[r.dir]) return;  // no se da la vuelta en seco
+    r.siguiente = quiere;
+    return;
+  }
+}
+
+addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") {
+    e.preventDefault();
+    if (juego.estado === "jugando") {
+      juego.estado = "pausa";
+      window.__enPantalla = true;
+      mostrarCapa("Pausa", "", "Seguir", null);
+    } else botonCapa();
+    return;
+  }
+  if (e.repeat) return;
+  pulsar(e.code);
+  if (/^(Arrow|Key[WASDIJKL])/.test(e.code)) e.preventDefault();
+});
+
+for (const boton of document.querySelectorAll("#mando [data-tecla]")) {
+  const code = boton.dataset.tecla;
+  boton.addEventListener("pointerdown", function (e) { e.preventDefault(); pulsar(code); });
+}
+
+/* ───────────────── Marcha ───────────────── */
+
+let ultimo = 0;
+function marco(ahora) {
+  requestAnimationFrame(marco);
+  const dt = Math.min(0.05, (ahora - ultimo) / 1000 || 0);
+  ultimo = ahora;
+  actualizar(dt);
+  if (juego.ancho) { dibujar(); pintarMarcador(); }
+}
+
+window.RENACUAJO = { juego, ajustes, empezar, actualizar, pulsar, abrirAjustes,
+                     ponerAlga, modoActivo, TAMANOS, MODOS, DIRS };
+
+leerAjustes();
+juego.ancho = TAMANOS[ajustes.tamano].w;
+juego.alto = TAMANOS[ajustes.tamano].h;
+ajustar();
+window.__verReglas = true;
+mostrarCapa("Renacuajo",
+  "Come algas y no te muerdas. Las paredes de la charca también matan.",
+  "Jugar",
+  [["Moverte", "W A S D o flechas"],
+   ["Segundo renacuajo", "I J K L"],
+   ["Pausa", "Espacio"],
+   ["Charca y modos", "botón AJUSTES"]]);
+requestAnimationFrame(marco);
+</script>
+
+</body>
+</html>

@@ -11,25 +11,6 @@
 <link rel="stylesheet" href="/assets/css/pixel.css">
 <link rel="stylesheet" href="/assets/css/consola.css">
 <style>
-  /* La tarjeta tiene que caber ENTERA en la pantalla del aparato. */
-  .tarjeta {
-    width:100%; max-width:430px; max-height:100%;
-    padding:14px 16px; text-align:center;
-    background:var(--tarjeta);
-    box-shadow:inset 0 0 0 3px var(--claro);
-    display:flex; flex-direction:column; gap:8px;
-    overflow:hidden;
-  }
-  .tarjeta h1 { margin:0; font-size:clamp(14px,3.4vh,24px); line-height:1.2; }
-  .tarjeta p { margin:0; color:var(--apagado); font-size:clamp(8px,1.5vh,11px); line-height:1.6; }
-  .tarjeta button {
-    width:100%; min-height:clamp(30px,5vh,44px); margin:2px 0 0;
-    border:none; cursor:pointer;
-    font:inherit; font-size:clamp(9px,1.8vh,13px);
-    background:var(--claro); color:var(--marino);
-    box-shadow:4px 4px 0 var(--bajo);
-  }
-  .tarjeta button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--bajo); }
   /* las reglas: al principio se ven grandes, en pausa no estorban */
   #capa-reglas {
     margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
@@ -38,8 +19,8 @@
     overflow:auto; min-height:0;
   }
   #capa-reglas.oculto { display:none; }
-  #capa-reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-  #capa-reglas span { color:var(--apagado); }
+  #capa-reglas > div {  display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas > div > span {  color:var(--apagado); }
   #capa-reglas b, #capa-reglas kbd, #capa-reglas em {
     font:inherit; font-style:normal; white-space:nowrap; color:var(--claro);
   }
@@ -72,18 +53,6 @@
 
     <div class="pantalla">
       <canvas id="lienzo"></canvas>
-      <div class="capa" id="capa">
-        <div class="tarjeta">
-          <h1 id="capa-titulo">Memoria del Charco</h1>
-          <p id="capa-texto"></p>
-          <button id="capa-boton">Jugar</button>
-          <div class="marcas" id="capa-reglas">
-            <div><span>Toca las ranas</span><b>en el orden que croaron</b></div>
-            <div><span>Cada ronda</span><b>una rana más</b></div>
-            <div><span>Tu récord</span><b id="capa-record">0</b></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="datos" id="hud">
@@ -104,6 +73,18 @@
     <div class="encendido">&#9211;</div>
   </div>
 
+</div>
+<div class="capa" id="capa">
+  <div class="tarjeta">
+    <h1 id="capa-titulo">Memoria del Charco</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Jugar</button>
+    <div class="marcas" id="capa-reglas">
+      <div><span>Toca las ranas</span><b>en el orden que croaron</b></div>
+      <div><span>Cada ronda</span><b>una rana más</b></div>
+      <div><span>Tu récord</span><b id="capa-record">0</b></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -442,6 +423,19 @@ const capaBoton = document.getElementById("capa-boton");
 const capaRecord = document.getElementById("capa-record");
 
 function mostrarCapa(titulo, texto, boton) {
+  /* La capa vive fuera de la carcasa, porque el recorte de las esquinas
+     recortaba también lo que tuviera dentro. Para la pausa se encaja a mano
+     encima del tubo. */
+  const dentro = !!window.__enPantalla;
+  window.__enPantalla = false;
+  capa.classList.toggle("dentro", dentro);
+  if (dentro) {
+    const p = document.querySelector(".pantalla").getBoundingClientRect();
+    capa.style.left = p.left + 4 + "px"; capa.style.top = p.top + 4 + "px";
+    capa.style.width = p.width - 8 + "px"; capa.style.height = p.height - 8 + "px";
+  } else {
+    capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  }
   const bloqueReglas = document.getElementById("capa-reglas");
   if (bloqueReglas) bloqueReglas.classList.toggle("oculto", !window.__verReglas);
   window.__verReglas = false;
@@ -536,5 +530,6 @@ mostrarCapa("Memoria del Charco",
   "Jugar");
 requestAnimationFrame(cuadro);
 </script>
+
 </body>
 </html>

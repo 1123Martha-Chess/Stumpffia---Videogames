@@ -55,12 +55,12 @@ window.STUMPFFIA = {
       pronto: true
     },
     {
-      id: "serpiente-renacuajo",
+      id: "renacuajo",
       nombre: "Renacuajo",
-      emoji: "🐍",
-      desc: "La serpiente de toda la vida, pero crece comiendo algas.",
-      peso: "9 KB",
-      pronto: true
+      emoji: "🪸",
+      desc: "La serpiente de siempre, pero es un renacuajo. Charca a tu medida y siete modos que se mezclan.",
+      peso: "7 KB",
+      pronto: false
     },
     {
       id: "piedras-lirios",
