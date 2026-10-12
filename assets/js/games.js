@@ -59,7 +59,7 @@ window.STUMPFFIA = {
       nombre: "Renacuajo",
       emoji: "🪸",
       desc: "La serpiente de siempre, pero es un renacuajo. Charca a tu medida y siete modos que se mezclan.",
-      peso: "7 KB",
+      peso: "8 KB",
       pronto: false
     },
     {

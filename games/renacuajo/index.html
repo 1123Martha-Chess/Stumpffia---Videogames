@@ -54,6 +54,14 @@
     background:var(--claro); color:var(--marino);
   }
   .capa .tarjeta .ajustes .contador button { width:32px; height:32px; }
+
+  /* En pantalla ancha, etiqueta a la izquierda y opciones repartidas. */
+  @media (min-width: 720px) {
+    .ajustes .ajuste { display:grid; grid-template-columns:150px 1fr; align-items:center; }
+    .ajustes .opciones { flex:1 1 auto; min-width:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
+    .capa .tarjeta .ajustes .opciones button { width:100%; padding:11px 6px; font-size:11px; }
+    .ajustes .contador { justify-content:flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -219,7 +227,8 @@ function ponerAlga() {
     const x = Math.floor(Math.random() * juego.ancho);
     const y = Math.floor(Math.random() * juego.alto);
     if (!libreParaAlga(x, y)) continue;
-    const misteriosa = modoActivo("misterio") && Math.random() < 0.45;
+    /* Con el modo puesto, todas las algas son locas: ninguna normal. */
+    const misteriosa = modoActivo("misterio");
     juego.algas.push({
       x: x, y: y,
       sorpresa: misteriosa ? SORPRESAS[Math.floor(Math.random() * SORPRESAS.length)] : null
@@ -547,6 +556,9 @@ function abrirAjustes() {
   fTam.className = "ajuste";
   const eTam = document.createElement("span"); eTam.textContent = "Charca";
   const oTam = document.createElement("div"); oTam.className = "opciones";
+  /* Ancho y columnas puestos aquí: en la hoja se los comía la especificidad. */
+  oTam.style.cssText = "flex:1;display:grid;width:100%;gap:8px;" +
+    "grid-template-columns:repeat(" + (innerWidth >= 720 ? 3 : 2) + ",1fr)";
   TAMANOS.forEach(function (t, i) {
     const b = document.createElement("button");
     b.textContent = t.nombre;
@@ -556,6 +568,7 @@ function abrirAjustes() {
     });
     oTam.appendChild(b);
   });
+  fTam.style.cssText = "display:flex;align-items:center;gap:12px";
   fTam.appendChild(eTam); fTam.appendChild(oTam);
 
   /* cuántas algas */

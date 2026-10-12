@@ -205,11 +205,13 @@ body {
 .mando button:active { background:var(--claro); color:var(--marino); box-shadow:inset 0 0 0 2px var(--claro); }
 
 .acciones { display:flex; align-items:center; gap:10px; }
+/* Cuadrados con la esquina mordida: un píxel no sabe hacer círculos. */
 .accion {
   width:96px; height:96px; font-size:14px;
   clip-path:polygon(
-    34% 0,66% 0, 80% 6%,92% 20%, 100% 34%,100% 66%, 92% 80%,80% 92%,
-    66% 100%,34% 100%, 20% 92%,8% 80%, 0 66%,0 34%, 8% 20%,20% 8%);
+    12px 0, calc(100% - 12px) 0, calc(100% - 6px) 6px, 100% 12px,
+    100% calc(100% - 12px), calc(100% - 6px) calc(100% - 6px), calc(100% - 12px) 100%,
+    12px 100%, 6px calc(100% - 6px), 0 calc(100% - 12px), 0 12px, 6px 6px);
 }
 .accion.chico { width:62px; height:62px; font-size:10px; }
 
@@ -274,13 +276,13 @@ body {
     background:var(--carcasa);
     box-shadow:inset 0 0 0 3px var(--claro), inset 4px 4px 0 3px var(--alto), inset -4px -4px 0 3px var(--bajo);
     clip-path:polygon(
-      34% 0,66% 0, 80% 6%,92% 20%, 100% 34%,100% 66%, 92% 80%,80% 92%,
-      66% 100%,34% 100%, 20% 92%,8% 80%, 0 66%,0 34%, 8% 20%,20% 8%);
+      10px 0, calc(100% - 10px) 0, calc(100% - 5px) 5px, 100% 10px,
+      100% calc(100% - 10px), calc(100% - 5px) calc(100% - 5px), calc(100% - 10px) 100%,
+      10px 100%, 5px calc(100% - 5px), 0 calc(100% - 10px), 0 10px, 5px 5px);
   }
-  .perilla::after {           /* la ranura */
-    content:""; position:absolute; left:50%; top:22%;
-    width:8px; height:56%; transform:translateX(-50%) rotate(var(--giro,0deg));
-    transform-origin:50% 50%;
+  .perilla::after {           /* la ranura, recta */
+    content:""; position:absolute; left:50%; top:24%;
+    width:8px; height:52%; transform:translateX(-50%);
     background:var(--claro);
   }
   .encendido {
@@ -362,3 +364,22 @@ body {
 .capa .tarjeta .ajustes button:active { transform:none; }
 .capa .tarjeta .opciones button[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--claro); }
 .capa .tarjeta .modo { width:100%; }
+
+/* En pantalla grande la tarjeta de ajustes se ensancha y las opciones se
+   reparten en una rejilla pareja, en vez de quedar unas largas y otras
+   cortas según el texto. */
+@media (min-width: 720px) {
+  .capa .tarjeta { max-width:720px; padding:26px 30px; gap:14px; }
+  .capa .tarjeta h1 { font-size:30px; }
+  .capa .tarjeta p { font-size:12px; }
+  .capa .tarjeta button { font-size:14px; min-height:48px; }
+  .ajuste { display:grid; grid-template-columns:140px 1fr; align-items:center; }
+  .ajuste > span { font-size:11px; }
+  .opciones { display:grid; grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:8px; justify-content:stretch; }
+  .capa .tarjeta .ajustes .opciones button { width:100%; padding:10px 6px; font-size:11px; }
+  .capa .tarjeta .ajustes .contador button { width:38px; height:38px; font-size:15px; }
+  .contador { justify-content:flex-start; }
+  .capa .tarjeta .ajustes .modo { padding:11px 13px; }
+  .modo b { font-size:12px; }
+  .modo i { font-size:10px; }
+}
