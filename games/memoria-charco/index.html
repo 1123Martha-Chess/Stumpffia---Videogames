@@ -11,6 +11,41 @@
 <link rel="stylesheet" href="/assets/css/pixel.css">
 <link rel="stylesheet" href="/assets/css/consola.css">
 <style>
+  /* La tarjeta tiene que caber ENTERA en la pantalla del aparato. */
+  .tarjeta {
+    width:100%; max-width:430px; max-height:100%;
+    padding:14px 16px; text-align:center;
+    background:var(--tarjeta);
+    box-shadow:inset 0 0 0 3px var(--claro);
+    display:flex; flex-direction:column; gap:8px;
+    overflow:hidden;
+  }
+  .tarjeta h1 { margin:0; font-size:clamp(14px,3.4vh,24px); line-height:1.2; }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:clamp(8px,1.5vh,11px); line-height:1.6; }
+  .tarjeta button {
+    width:100%; min-height:clamp(30px,5vh,44px); margin:2px 0 0;
+    border:none; cursor:pointer;
+    font:inherit; font-size:clamp(9px,1.8vh,13px);
+    background:var(--claro); color:var(--marino);
+    box-shadow:4px 4px 0 var(--bajo);
+  }
+  .tarjeta button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--bajo); }
+  /* las reglas: al principio se ven grandes, en pausa no estorban */
+  #capa-reglas {
+    margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
+    display:grid; gap:clamp(3px,.9vh,7px);
+    font-size:clamp(7px,1.35vh,10px); text-align:left;
+    overflow:auto; min-height:0;
+  }
+  #capa-reglas.oculto { display:none; }
+  #capa-reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas span { color:var(--apagado); }
+  #capa-reglas b, #capa-reglas kbd, #capa-reglas em {
+    font:inherit; font-style:normal; white-space:nowrap; color:var(--claro);
+  }
+  #capa-reglas kbd { padding:2px 5px; box-shadow:inset 0 0 0 2px var(--borde); }
+  #capa-reglas em { display:flex; gap:4px; }
+
   :root {
     --marino:#0B1A4A;
     --tarjeta:#13295E;
@@ -24,65 +59,51 @@
   #aviso { margin-left:auto; }
   #sonido { pointer-events:auto; cursor:pointer; font:inherit; }
 
-  .tarjeta {
-    width:min(420px,100%); padding:34px 30px 26px; text-align:center;
-    background:var(--tarjeta); border:3px solid var(--claro);
-  }
-    .tarjeta h1 { margin:0 0 10px; font-size:clamp(18px,5vw,26px); line-height:1.25; }
-  .tarjeta p { margin:0; color:var(--apagado); font-size:11px; line-height:1.7; }
-  .tarjeta button {
-    width:100%; min-height:50px; margin-top:22px;
-    border:2px solid var(--marino); cursor:pointer;
-    font:inherit; font-size:13px;
-    background:var(--claro); color:var(--marino);
-    transition:transform .12s ease, opacity .15s ease;
-  }
-  .tarjeta button:hover { opacity:.88; }
-  .tarjeta button:active { transform:translate(1px,1px); }
-  .marcas { 
-    margin:22px 0 0; padding:14px 2px 2px; border-top:1px solid var(--borde);
-    display:grid; gap:9px; font-size:10px;
-  }
-  .marcas div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .marcas span { color:var(--apagado); }
-  .marcas b { font-variant-numeric:tabular-nums; }
-  .tarjeta a { 
-    display:inline-block; margin-top:18px;
+      display:inline-block; margin-top:18px;
     color:var(--apagado); font-size:10px; font-weight:700; text-decoration:none;
   }
-  .tarjeta a:hover { color:var(--claro); }
 </style>
 </head>
 <body>
 
 <div class="consola">
-  <div class="pantalla">
-    <canvas id="lienzo"></canvas>
-    <div class="capa" id="capa">
-      <div class="tarjeta">
-        <h1 id="capa-titulo">Memoria del Charco</h1>
-        <p id="capa-texto"></p>
-        <button id="capa-boton">Jugar</button>
-        <div class="marcas">
-          <div><span>Toca las ranas</span><b>en el orden que croaron</b></div>
-          <div><span>Cada ronda</span><b>una rana más</b></div>
-          <div><span>Tu récord</span><b id="capa-record">0</b></div>
+  <div class="lateral izq" aria-hidden="true"></div>
+  <div class="centro">
+
+    <div class="pantalla">
+      <canvas id="lienzo"></canvas>
+      <div class="capa" id="capa">
+        <div class="tarjeta">
+          <h1 id="capa-titulo">Memoria del Charco</h1>
+          <p id="capa-texto"></p>
+          <button id="capa-boton">Jugar</button>
+          <div class="marcas" id="capa-reglas">
+            <div><span>Toca las ranas</span><b>en el orden que croaron</b></div>
+            <div><span>Cada ronda</span><b>una rana más</b></div>
+            <div><span>Tu récord</span><b id="capa-record">0</b></div>
+          </div>
         </div>
       </div>
     </div>
+
+    <div class="datos" id="hud">
+      <div class="ficha"><span>RONDA</span><b id="ronda">1</b></div>
+      <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
+      <div class="ficha" id="aviso"><span>TURNO</span><b>Mira bien</b></div>
+      <div class="ficha" id="sonido" role="button" tabindex="0"><span>SONIDO</span><b>SI</b></div>
+    </div>
+
+    <div class="botonera">
+      <button id="btn-pausa">REINICIAR</button>
+      <a href="/">SALIR</a>
+    </div>  </div>
+  <div class="lateral der" aria-hidden="true">
+    <div class="perilla" style="--giro:-38deg"></div>
+    <div class="perilla" style="--giro:22deg"></div>
+    <div class="perilla" style="--giro:65deg"></div>
+    <div class="encendido">&#9211;</div>
   </div>
 
-  <div class="datos" id="hud">
-    <div class="ficha"><span>RONDA</span><b id="ronda">1</b></div>
-    <div class="ficha"><span>RÉCORD</span><b id="record">0</b></div>
-    <div class="ficha" id="aviso"><span>TURNO</span><b>Mira bien</b></div>
-    <div class="ficha" id="sonido" role="button" tabindex="0"><span>SONIDO</span><b>SI</b></div>
-  </div>
-
-  <div class="botonera">
-    <button id="btn-pausa">REINICIAR</button>
-    <a href="/">SALIR</a>
-  </div>
 </div>
 
 <script>
@@ -317,6 +338,7 @@ function fallar() {
   pitido(4, 0.45);
   for (const r of RANAS) r.croando = 0.5;   // todas se apagan a la vez
   setTimeout(function () {
+    window.__verReglas = true;
     mostrarCapa("Te perdiste",
       "Llegaste a la ronda " + juego.ronda + ". La rana que tocaba era otra.",
       "Otra vez");
@@ -420,6 +442,9 @@ const capaBoton = document.getElementById("capa-boton");
 const capaRecord = document.getElementById("capa-record");
 
 function mostrarCapa(titulo, texto, boton) {
+  const bloqueReglas = document.getElementById("capa-reglas");
+  if (bloqueReglas) bloqueReglas.classList.toggle("oculto", !window.__verReglas);
+  window.__verReglas = false;
   capaTitulo.textContent = titulo;
   capaTexto.textContent = texto;
   capaBoton.textContent = boton;
@@ -505,6 +530,7 @@ window.MEMORIA = { juego, RANAS, empezar, tocar, actualizar, paso,
 
 ajustar();
 pintarMarcador();
+window.__verReglas = true;
 mostrarCapa("Memoria del Charco",
   "Las ranas croan por turnos y cambian de color. Repite el orden tocándolas. Cada ronda añade una más.",
   "Jugar");

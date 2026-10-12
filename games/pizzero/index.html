@@ -11,6 +11,41 @@
 <link rel="stylesheet" href="/assets/css/pixel.css">
 <link rel="stylesheet" href="/assets/css/consola.css">
 <style>
+  /* La tarjeta tiene que caber ENTERA en la pantalla del aparato. */
+  .tarjeta {
+    width:100%; max-width:430px; max-height:100%;
+    padding:14px 16px; text-align:center;
+    background:var(--tarjeta);
+    box-shadow:inset 0 0 0 3px var(--claro);
+    display:flex; flex-direction:column; gap:8px;
+    overflow:hidden;
+  }
+  .tarjeta h1 { margin:0; font-size:clamp(14px,3.4vh,24px); line-height:1.2; }
+  .tarjeta p { margin:0; color:var(--apagado); font-size:clamp(8px,1.5vh,11px); line-height:1.6; }
+  .tarjeta button {
+    width:100%; min-height:clamp(30px,5vh,44px); margin:2px 0 0;
+    border:none; cursor:pointer;
+    font:inherit; font-size:clamp(9px,1.8vh,13px);
+    background:var(--claro); color:var(--marino);
+    box-shadow:4px 4px 0 var(--bajo);
+  }
+  .tarjeta button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--bajo); }
+  /* las reglas: al principio se ven grandes, en pausa no estorban */
+  #capa-reglas {
+    margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
+    display:grid; gap:clamp(3px,.9vh,7px);
+    font-size:clamp(7px,1.35vh,10px); text-align:left;
+    overflow:auto; min-height:0;
+  }
+  #capa-reglas.oculto { display:none; }
+  #capa-reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas span { color:var(--apagado); }
+  #capa-reglas b, #capa-reglas kbd, #capa-reglas em {
+    font:inherit; font-style:normal; white-space:nowrap; color:var(--claro);
+  }
+  #capa-reglas kbd { padding:2px 5px; box-shadow:inset 0 0 0 2px var(--borde); }
+  #capa-reglas em { display:flex; gap:4px; }
+
   :root {
     --marino:#0B1A4A; --tarjeta:#13295E; --claro:#7EC8F2;
     --apagado:#8FB4D8; --borde:rgba(126,200,242,.18);
@@ -18,57 +53,45 @@
 
 
 
-  .tarjeta {
-    width:min(430px,100%); padding:28px 26px 22px; text-align:center;
-    background:var(--tarjeta); border:3px solid var(--claro);
-  }
-  .tarjeta h1 { margin:0 0 10px; font-size:clamp(20px,5vw,26px); line-height:1.2; }
-  .tarjeta p { margin:0; color:var(--apagado); font-size:11px; line-height:1.7; }
-  .tarjeta button {
-    width:100%; min-height:48px; margin-top:20px;
-    border:2px solid var(--marino); cursor:pointer;
-    font:inherit; font-size:13px;
-    background:var(--claro); color:var(--marino);
-  }
-  .tarjeta button:active { transform:translate(1px,1px); }
-  .reglas {
-    margin:20px 0 0; padding:14px 2px 2px; border-top:2px solid var(--borde);
-    display:grid; gap:8px; font-size:10px; text-align:left;
-  }
-  .reglas div { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
-  .reglas span { color:var(--apagado); }
-  .reglas b { white-space:nowrap; }
-  .tarjeta a { display:inline-block; margin-top:16px; color:var(--apagado); font-size:10px; text-decoration:none; }
-  .tarjeta a:hover { color:var(--claro); }
 </style>
 </head>
 <body>
 
 <div class="consola">
-  <div class="pantalla">
-    <canvas id="lienzo"></canvas>
-    <div class="capa" id="capa">
-      <div class="tarjeta">
-        <h1 id="capa-titulo">Pizzero</h1>
-        <p id="capa-texto"></p>
-        <button id="capa-boton">Empezar el turno</button>
-        <div class="reglas" id="capa-reglas"></div>
+  <div class="lateral izq" aria-hidden="true"></div>
+  <div class="centro">
+
+    <div class="pantalla">
+      <canvas id="lienzo"></canvas>
+      <div class="capa" id="capa">
+        <div class="tarjeta">
+          <h1 id="capa-titulo">Pizzero</h1>
+          <p id="capa-texto"></p>
+          <button id="capa-boton">Empezar el turno</button>
+          <div class="reglas" id="capa-reglas"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="datos" id="hud">
-    <div class="ficha"><span>ENTREGAS</span><b id="entregas">0</b></div>
-    <div class="ficha" id="ficha-despido"><span>SIN ENTREGAR</span><b id="despido">5:00</b></div>
-    <div class="ficha"><span>REPARTO</span><b id="vehiculo">A pie</b></div>
-    <div id="pizzas" style="display:contents"></div>
-  </div>
+    <div class="datos" id="hud">
+      <div class="ficha"><span>ENTREGAS</span><b id="entregas">0</b></div>
+      <div class="ficha" id="ficha-despido"><span>SIN ENTREGAR</span><b id="despido">5:00</b></div>
+      <div class="ficha"><span>REPARTO</span><b id="vehiculo">A pie</b></div>
+      <div id="pizzas" style="display:contents"></div>
+    </div>
 
-  <div class="botonera">
-    <button id="btn-pausa">PAUSA</button>
-    <a href="/">SALIR</a>
-  </div>
+    <div class="botonera">
+      <button id="btn-pausa">PAUSA</button>
+      <a href="/">SALIR</a>
+    </div>
 
+  </div>
+  <div class="lateral der" aria-hidden="true">
+    <div class="perilla" style="--giro:-38deg"></div>
+    <div class="perilla" style="--giro:22deg"></div>
+    <div class="perilla" style="--giro:65deg"></div>
+    <div class="encendido">&#9211;</div>
+  </div>
   <div class="mando" id="mando">
     <div class="cruz">
       <button data-dir="arriba"    style="--pos:1/2">▲</button>
@@ -488,6 +511,7 @@ function revisarAtropello() {
   for (const v of trafico) {
     if (Math.abs(v.x - jugador.x) < 0.7 && Math.abs(v.y - jugador.y) < 0.7) {
       juego.estado = "despedido";
+      window.__verReglas = true;
       mostrarCapa(juego.fase === 0 ? "¡Te han atropellado!" : "¡Has chocado!",
         juego.fase === 0
           ? "Un coche no te vio cruzar."
@@ -658,6 +682,7 @@ function actualizar(dt) {
 
 function despedir() {
   juego.estado = "despedido";
+  window.__verReglas = true;
   mostrarCapa("Te despidieron",
     "Pasaste cinco minutos sin entregar una sola pizza.",
     "Buscar otro trabajo",
@@ -875,6 +900,9 @@ const REGLAS = [
 ];
 
 function mostrarCapa(titulo, texto, boton, filas) {
+  const bloqueReglas = document.getElementById("capa-reglas");
+  if (bloqueReglas) bloqueReglas.classList.toggle("oculto", !window.__verReglas);
+  window.__verReglas = false;
   capaTitulo.textContent = titulo;
   capaTexto.textContent = texto;
   capaBoton.textContent = boton;
@@ -1000,6 +1028,7 @@ window.PIZZERO = { juego, jugador, ciudad, trafico, empezar, actualizar,
 ajustar();
 empezar();
 juego.estado = "menu";
+window.__verReglas = true;
 mostrarCapa("Pizzero",
   "Recoge las pizzas en el mostrador y llévalas a su puerta antes de que se enfríen. La flecha te dice hacia dónde.",
   "Empezar el turno", null);

@@ -1,19 +1,21 @@
 /* La carcasa de los juegos de Stumpffia.
  *
- * En celular es una consolita: pantalla arriba sin nada encima, la tira de
- * datos debajo, los botones de pausa y salir, y el mando al fondo.
- * En computadora es un televisor viejo con el juego dentro.
- *
- * Todo a bordes rectos y sin degradados, para que case con el píxel.
+ * En celular es una consolita de bolsillo; en computadora, un televisor de
+ * tubo. Las dos están hechas solo con bordes duros, escalones y tramas de
+ * puntos: nada de degradados suaves ni sombras difusas, para que peguen con
+ * el píxel del juego.
  */
 
 :root {
-  --marino:#0B1A4A;
-  --tarjeta:#13295E;
-  --claro:#7EC8F2;
+  --marino:#0B1A4A;      /* el fondo de todo */
+  --tubo:#16306E;        /* el azul de la pantalla encendida */
+  --carcasa:#15295E;     /* el cuerpo del aparato */
+  --alto:#2E53A6;        /* bisel iluminado */
+  --bajo:#0A1740;        /* bisel en sombra */
+  --claro:#7EC8F2;       /* las líneas vivas */
   --apagado:#8FB4D8;
-  --borde:rgba(126,200,242,.18);
-  --carcasa:#13295E;
+  --tarjeta:#13295E;
+  --borde:rgba(126,200,242,.22);
 }
 
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -25,140 +27,275 @@ body {
   display:flex; align-items:center; justify-content:center;
 }
 
-/* ───────────── la consola ───────────── */
-
-.consola {
-  width:100%; height:100%;
-  max-width:560px;
-  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
-  padding-top:calc(10px + env(safe-area-inset-top));
-  display:flex; flex-direction:column; gap:8px;
+/* esquinas con escalón, como el píxel manda */
+.esquinas {
+  clip-path:polygon(
+    8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
 }
 
-/* ───────────── la pantalla ───────────── */
+/* trama de puntos cuadrados para las rejillas de altavoz */
+.rejilla {
+  background:var(--claro);
+  -webkit-mask-image:
+    repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 7px);
+  -webkit-mask-composite:source-in;
+  mask-image:
+    repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 7px);
+  mask-composite:intersect;
+  opacity:.5;
+}
+
+/* ═════════════════ la consolita (celular) ═════════════════ */
+
+.consola {
+  width:100%; height:100%; max-width:540px;
+  display:flex; flex-direction:column; gap:9px;
+  padding:11px;
+  background:var(--carcasa);
+  box-shadow:
+    inset 0 0 0 3px var(--claro),
+    inset 4px 4px 0 3px var(--alto),
+    inset -4px -4px 0 3px var(--bajo);
+  clip-path:polygon(
+    10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
+    calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+}
+.lateral { display:none; }
+
+/* ───── la pantalla ───── */
 
 .pantalla {
   position:relative; flex:1; min-height:0;
-  background:var(--marino);
-  border:4px solid var(--claro);
-  box-shadow:0 0 0 4px var(--carcasa);
+  background:var(--tubo);
+  padding:4px;
+  box-shadow:
+    inset 0 0 0 3px var(--claro),
+    0 0 0 3px var(--bajo);
 }
 .pantalla canvas {
   display:block; width:100%; height:100%;
   image-rendering:pixelated; touch-action:none;
 }
+/* el brillo diagonal del cristal */
+.pantalla::after {
+  content:""; position:absolute; inset:4px; pointer-events:none; z-index:3;
+  background:linear-gradient(118deg,
+    transparent 0 32%, rgba(126,200,242,.07) 32% 37%,
+    transparent 37% 41%, rgba(126,200,242,.05) 41% 44%, transparent 44%);
+}
 
-/* la capa de menús vive dentro de la pantalla, no sobre toda la página */
+/* los menús viven DENTRO de la pantalla */
 .pantalla .capa {
-  position:absolute; inset:0; z-index:10;
-  display:none; align-items:center; justify-content:center; padding:14px;
-  background:rgba(11,26,74,.9);
-  overflow:auto;
+  position:absolute; inset:4px; z-index:10;
+  display:none; align-items:center; justify-content:center; padding:8px;
+  background:rgba(11,26,74,.93);
 }
 .pantalla .capa.visible { display:flex; }
 
-/* ───────────── la tira de datos ───────────── */
+/* ───── la tira de datos ───── */
 
 .datos {
   flex:none; display:flex; align-items:stretch; gap:6px; flex-wrap:wrap;
-  padding:6px; border:3px solid var(--claro); background:var(--carcasa);
+  padding:6px;
+  background:var(--bajo);
+  box-shadow:inset 0 0 0 3px var(--claro);
 }
 .ficha {
   flex:1 1 auto; min-width:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
-  padding:4px 7px;
-  background:var(--marino); border:2px solid var(--borde);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  padding:4px 8px;
+  background:var(--marino);
+  box-shadow:inset 0 0 0 2px var(--borde);
   font-variant-numeric:tabular-nums;
 }
 .ficha span {
   font-size:7px; letter-spacing:.06em; color:var(--apagado);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
 }
-.ficha b { font-size:12px; color:var(--claro); white-space:nowrap; }
-.ficha.urgente { border-color:var(--claro); animation:latir .7s infinite; }
+.ficha b { font-size:13px; color:var(--claro); white-space:nowrap; }
+.ficha.urgente { box-shadow:inset 0 0 0 2px var(--claro); animation:latir .7s infinite; }
 @keyframes latir { 50% { background:var(--claro); color:var(--marino); } }
 @media (prefers-reduced-motion: reduce) { .ficha.urgente { animation:none; } }
 
-/* ───────────── pausa y salir ───────────── */
+/* ───── la fila de en medio: altavoz, botones, piloto ───── */
 
-.botonera { flex:none; display:flex; gap:8px; justify-content:center; }
-.botonera button, .botonera a {
-  min-height:34px; padding:0 18px;
-  display:flex; align-items:center;
-  font:inherit; font-size:11px; text-decoration:none; cursor:pointer;
-  background:var(--carcasa); color:var(--claro); border:2px solid var(--claro);
+.botonera {
+  flex:none; display:flex; align-items:center; gap:9px;
+  padding:0 2px;
 }
-.botonera button:active, .botonera a:active { background:var(--claro); color:var(--marino); }
+.botonera::before {           /* rejilla del altavoz, a la izquierda */
+  content:""; width:60px; height:30px; flex:none;
+  background:var(--claro);
+  -webkit-mask-image:
+    repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 7px);
+  -webkit-mask-composite:source-in;
+  mask-image:
+    repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(0deg, #000 0 3px, transparent 3px 7px);
+  mask-composite:intersect;
+  opacity:.45;
+}
+.botonera::after {            /* piloto y el interruptor de la derecha */
+  content:"OFF"; flex:none; margin-left:auto;
+  font-size:8px; color:var(--apagado);
+  padding:3px 7px;
+  background:var(--bajo);
+  box-shadow:inset 0 0 0 2px var(--alto), -13px 0 0 -4px #cf5a5a;
+}
+.botonera button, .botonera a {
+  min-height:34px; padding:0 14px;
+  display:flex; align-items:center;
+  font:inherit; font-size:10px; text-decoration:none; cursor:pointer;
+  color:var(--claro); background:var(--carcasa); border:none;
+  box-shadow:
+    inset 0 0 0 2px var(--claro),
+    inset 3px 3px 0 2px var(--alto),
+    inset -3px -3px 0 2px var(--bajo),
+    4px 4px 0 var(--bajo);
+}
+.botonera button:active, .botonera a:active {
+  background:var(--claro); color:var(--marino);
+  box-shadow:inset 0 0 0 2px var(--claro);
+  transform:translate(3px,3px);
+}
 
-/* ───────────── el mando ───────────── */
+/* ───── el mando ───── */
 
 .mando {
   flex:none; display:flex; align-items:center; justify-content:space-between;
-  padding:6px 4px 0;
+  padding:4px 6px 2px;
 }
-.cruz { display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(3,48px); }
+.cruz {
+  display:grid; grid-template-columns:repeat(3,46px); grid-template-rows:repeat(3,46px);
+  position:relative;
+}
+.cruz::after {                /* el eje del centro */
+  content:""; position:absolute; left:50%; top:50%; width:20px; height:20px;
+  transform:translate(-50%,-50%);
+  background:var(--carcasa);
+  box-shadow:inset 0 0 0 2px var(--bajo);
+  clip-path:polygon(6px 0,14px 0,20px 6px,20px 14px,14px 20px,6px 20px,0 14px,0 6px);
+}
 .cruz button { grid-area:var(--pos); }
-.acciones { display:flex; align-items:center; gap:12px; }
 .mando button {
-  background:var(--carcasa); color:var(--claro); border:3px solid var(--claro);
-  font:inherit; font-size:17px; cursor:pointer;
+  background:var(--carcasa); color:var(--claro); border:none;
+  font:inherit; font-size:15px; cursor:pointer;
+  box-shadow:
+    inset 0 0 0 2px var(--claro),
+    inset 3px 3px 0 2px var(--alto),
+    inset -3px -3px 0 2px var(--bajo);
 }
-.mando button:active { background:var(--claro); color:var(--marino); }
-.accion { width:62px; height:62px; border-radius:50%; font-size:12px; }
-.accion.chico { width:48px; height:48px; font-size:10px; }
+.mando button:active { background:var(--claro); color:var(--marino); box-shadow:inset 0 0 0 2px var(--claro); }
 
-/* En escritorio no hay dedos: fuera el mando, y la pantalla manda. */
-@media (hover: hover) and (min-width: 760px) {
-  .mando { display:none; }
+.acciones { display:flex; align-items:center; gap:10px; }
+.accion {
+  width:96px; height:96px; font-size:14px;
+  clip-path:polygon(
+    30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
 }
+.accion.chico { width:62px; height:62px; font-size:10px; }
 
-/* ───────────── el televisor de escritorio ───────────── */
+/* ═════════════════ el televisor (escritorio) ═════════════════ */
 
-@media (min-width: 760px) and (min-height: 560px) {
-  body { padding:18px; }
+/* Solo por tamaño: hay navegadores que dicen no tener ratón aunque lo haya,
+   y con la condición de hover el televisor no aparecía nunca. */
+@media (min-width: 820px) and (min-height: 540px) {
+  body { padding:16px; }
+
   .consola {
-    max-width:min(1180px, 100%);
-    padding:0;
-    flex-direction:column; gap:0;
+    max-width:min(1240px,100%);
+    display:grid;
+    grid-template-columns:96px minmax(0,1fr) 150px;
+    grid-template-rows:minmax(0,1fr);   /* que la fila no crezca más que el mueble */
+    gap:12px; padding:14px;
+  }
+  /* En el televisor el mando sobra, salvo que se juegue con el dedo: ahí
+     baja a una fila propia en vez de colarse como una columna más. */
+  .mando { display:none; }
+  @media (hover: none) and (pointer: coarse) {
+    .consola { grid-template-rows:minmax(0,1fr) auto; }
+    .mando { display:flex; grid-column:1 / -1; }
   }
 
-  /* carcasa del televisor */
-  .pantalla {
-    border:none;
-    padding:26px 26px 54px;
+  /* el centro: pantalla, datos y botones */
+  .centro { display:flex; flex-direction:column; gap:9px; min-width:0; min-height:0; }
+
+  /* los costados del mueble */
+  .lateral {
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+    padding:10px 6px; min-height:0; overflow:hidden;
     background:var(--carcasa);
-    box-shadow:none;
-    outline:4px solid var(--claro);
-    outline-offset:-4px;
+    box-shadow:inset 0 0 0 3px var(--bajo), inset 3px 3px 0 3px var(--alto);
   }
-  /* el tubo, hundido dentro de la carcasa */
-  .pantalla::before {
-    content:""; position:absolute; inset:26px 26px 54px;
-    border:4px solid var(--claro); pointer-events:none; z-index:2;
-  }
-  .pantalla canvas { position:relative; z-index:1; }
-  .pantalla .capa { inset:30px 30px 58px; }
 
-  /* mandos y rejilla del altavoz, abajo a la derecha */
-  .pantalla::after {
-    content:""; position:absolute; left:26px; right:26px; bottom:14px; height:26px;
+  /* izquierda: rejilla larga y dos pulsadores */
+  .lateral.izq::before {
+    content:""; width:100%; flex:1;
+    background:var(--claro);
+    -webkit-mask-image:
+      repeating-linear-gradient(90deg,#000 0 3px,transparent 3px 7px),
+      repeating-linear-gradient(0deg,#000 0 3px,transparent 3px 7px);
+    -webkit-mask-composite:source-in;
+    mask-image:
+      repeating-linear-gradient(90deg,#000 0 3px,transparent 3px 7px),
+      repeating-linear-gradient(0deg,#000 0 3px,transparent 3px 7px);
+    mask-composite:intersect;
+    opacity:.4;
+  }
+  .lateral.izq::after {
+    content:""; width:46px; height:86px; flex:none;
     background:
-      radial-gradient(circle at 18px 13px, var(--claro) 0 8px, transparent 8px),
-      radial-gradient(circle at 46px 13px, var(--claro) 0 6px, transparent 6px),
-      repeating-linear-gradient(90deg, var(--claro) 0 3px, transparent 3px 9px);
-    background-repeat:no-repeat, no-repeat, no-repeat;
-    background-size:auto, auto, 120px 14px;
-    background-position:left center, left center, right center;
-    opacity:.55;
+      linear-gradient(var(--alto) 0 0) center 10px / 30px 30px no-repeat,
+      linear-gradient(var(--alto) 0 0) center 52px / 30px 30px no-repeat;
+    box-shadow:inset 0 0 0 2px var(--bajo);
   }
 
-  /* la tira de datos pasa a ser el frontal del televisor */
-  .datos {
-    border:4px solid var(--claro); border-top:none;
-    padding:8px 10px; gap:8px;
+  /* derecha: tres perillas y el botón de encendido */
+  .perilla {
+    width:76px; height:76px; flex:none; position:relative;
+    background:var(--carcasa);
+    box-shadow:inset 0 0 0 3px var(--claro), inset 4px 4px 0 3px var(--alto), inset -4px -4px 0 3px var(--bajo);
+    clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
   }
-  .ficha { flex:0 1 auto; padding:5px 12px; }
+  .perilla::after {           /* la ranura */
+    content:""; position:absolute; left:50%; top:22%;
+    width:8px; height:56%; transform:translateX(-50%) rotate(var(--giro,0deg));
+    transform-origin:50% 50%;
+    background:var(--claro);
+  }
+  .encendido {
+    width:40px; height:34px; flex:none; margin-top:auto;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:var(--claro);
+    background:var(--bajo);
+    box-shadow:inset 0 0 0 2px var(--claro);
+  }
+
+  /* la pantalla, hundida en el mueble */
+  .pantalla {
+    padding:10px;
+    box-shadow:
+      inset 0 0 0 3px var(--claro),
+      inset 5px 5px 0 3px var(--bajo),
+      0 0 0 4px var(--bajo), 0 0 0 7px var(--alto);
+  }
+  .pantalla .capa { inset:10px; }
+
+  /* en el televisor la fila de abajo no lleva altavoz ni piloto */
+  .botonera { justify-content:flex-end; }
+  .botonera::before, .botonera::after { content:none; }
+  .botonera button, .botonera a { font-size:12px; padding:0 20px; min-height:38px; }
+
+  .ficha { flex:0 1 auto; padding:5px 14px; }
   .ficha span { font-size:8px; }
-  .ficha b { font-size:14px; }
-  .botonera { padding-top:10px; }
+  .ficha b { font-size:15px; }
+}
+
+/* en pantallas chicas los costados del mueble no existen */
+@media (max-width: 819px), (max-height: 539px) {
+  .centro { display:contents; }
 }
