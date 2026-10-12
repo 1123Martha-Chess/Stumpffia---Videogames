@@ -88,7 +88,7 @@
       <button data-dir="abajo"     style="--pos:3/2">▼</button>
     </div>
     <div class="acciones">
-      <button class="accion" id="fuego">FUEGO</button>
+      <button class="accion" id="fuego"><span>FUEGO</span></button>
     </div>
   </div>
 </div>
@@ -147,18 +147,19 @@ function encendido(n, x, y) {
   return (bits[n * 32 + (i >> 3)] >> (7 - (i & 7))) & 1;
 }
 
-/* Tres versiones de cada sprite:
+/* Versiones de cada sprite:
      relleno  — el 0 se pinta de azul marino (para el terreno)
      recorte  — el 0 queda transparente (para tanques, cohetes, objetos)
-     trama    — como recorte pero en damero, para que el enemigo se vea
-                más apagado que tú sin necesidad de un tercer color   */
-function construirAtlas(modo) {
+   y, con un color propio, los bandos: verde los tuyos, rojo los contrarios,
+   para saber de un vistazo a quién le estás disparando. */
+const VERDE = [0x6f, 0xe3, 0xa8], ROJO = [0xf2, 0x70, 0x5b];
+function construirAtlas(modo, tinta) {
   const lienzo = document.createElement("canvas");
   lienzo.width = TAM * NOMBRES.length;
   lienzo.height = TAM;
   const ctx = lienzo.getContext("2d");
   const img = ctx.createImageData(lienzo.width, TAM);
-  const cl = [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
+  const cl = tinta || [0x7e, 0xc8, 0xf2], ma = [0x0b, 0x1a, 0x4a];
 
   for (let n = 0; n < NOMBRES.length; n++) {
     for (let y = 0; y < TAM; y++) {
@@ -167,8 +168,7 @@ function construirAtlas(modo) {
         const vivo = encendido(n, x, y);
         let color = null;
         if (vivo) {
-          if (modo === "trama" && ((x + y) & 1)) color = null;
-          else color = cl;
+          color = cl;
         } else if (modo === "relleno") {
           color = ma;
         }
@@ -186,7 +186,8 @@ function construirAtlas(modo) {
 const ATLAS = {
   relleno: construirAtlas("relleno"),
   recorte: construirAtlas("recorte"),
-  trama:   construirAtlas("trama")
+  amigo:   construirAtlas("recorte", VERDE),
+  enemigo: construirAtlas("recorte", ROJO)
 };
 
 /* ───────────────── El mundo ───────────────── */
@@ -227,6 +228,7 @@ function ponerCasilla(x, y, tipo, sprite, rojo) {
   mundo.sprite[i] = sprite || TERRENO[tipo].sprite;
   mundo.vida[i] = TERRENO[tipo].vida;
   if (rojo !== undefined) mundo.rojo[i] = rojo;
+  repintarCasilla(x, y);
 }
 
 /* Números al azar reproducibles: el mismo número de partida da el mismo mapa. */
@@ -569,6 +571,7 @@ function nuevoTanque(x, y, esJugador, equipo) {
     pasoVelocidad: 0.16,     // segundos por casilla
     cuadro: 0,               // alterna _1 y _2 al avanzar
     enfriamiento: 0,
+    encolado: null,          // dirección pedida que aún no se ha podido dar
     vivo: true,
     /* poderes */
     superCohete: false,
@@ -777,11 +780,20 @@ function mirar(x, y, dir, salvo) {
 }
 
 /* Mete un enemigo nuevo en el mapa, lejos de ti y en terreno alcanzable. */
+/* En "por equipos" cada bando sale de una punta del mapa: el eje se sortea
+   al empezar, tú naces en el extremo bajo y los contrarios en el alto. */
+function lado(x, y) {
+  return juego.eje ? y / (mundo.alto - 1) : x / (mundo.ancho - 1);
+}
+function miLado(x, y)  { return !ajustes.equipos || lado(x, y) < 0.38; }
+function suLado(x, y)  { return !ajustes.equipos || lado(x, y) > 0.62; }
+
 function soltarEnemigo(jx, jy) {
   for (let intento = 0; intento < 3000; intento++) {
     const margen = intento < 2000 ? 16 : 8;
     const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
     if (!juego.alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
+    if (intento < 2500 && !suLado(x, y)) continue;    // su punta del mapa
     if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
     if (x === jx || y === jy) continue;
     let apinado = false;
@@ -913,11 +925,14 @@ function actualizar(dt) {
   /* --- jugador --- */
   const j = juego.jugador;
   if (j.vivo) {
-    /* manda la última que se pulsó, aunque las anteriores sigan hundidas */
+    /* Manda la última tecla pulsada, aunque las anteriores sigan hundidas.
+       Si el tanque está a medio paso la dirección se guarda en 'encolado' y
+       sale en cuanto puede: así un toque corto en la cruceta no se pierde. */
     const dir = ordenDirecciones.length
       ? DIRECCION_TECLA[ordenDirecciones[ordenDirecciones.length - 1]]
       : null;
-    if (dir) mover(j, dir);
+    if (dir) j.encolado = dir;
+    if (j.encolado && mover(j, j.encolado)) j.encolado = dir;
     if (teclas.KeyO) disparar(j);
   }
 
@@ -1016,7 +1031,13 @@ let escala = 3, anchoVista = 0, altoVista = 0;
 
 function ajustarLienzo() {
   const w = lienzo.clientWidth || 320, h = lienzo.clientHeight || 240;
-  escala = Math.max(2, Math.min(4, Math.floor(Math.min(w / (16 * TAM), h / (14 * TAM)))));
+  /* En pantalla chica se pide ver mucho más campo —24 casillas de ancho y 17
+     de alto— porque con el zoom de antes no se veía de dónde venían los
+     cohetes. En pantalla grande se queda como estaba. */
+  const chica = w < 700;
+  const cols = chica ? 24 : 16, filas = chica ? 17 : 14;
+  escala = Math.max(chica ? 1 : 2,
+                    Math.min(4, Math.floor(Math.min(w / (cols * TAM), h / (filas * TAM)))));
   anchoVista = Math.ceil(w / (TAM * escala)) + 2;
   altoVista = Math.ceil(h / (TAM * escala)) + 2;
   lienzo.width = w; lienzo.height = h;
@@ -1024,6 +1045,59 @@ function ajustarLienzo() {
 }
 window.addEventListener("resize", ajustarLienzo);
 if (window.ResizeObserver) new ResizeObserver(ajustarLienzo).observe(lienzo);
+
+/* ── El terreno, pintado una sola vez ──────────────────────────────
+   Antes se dibujaban unas 500 casillas por cuadro, una llamada cada una.
+   Ahora el mapa vive en su propio lienzo (a tamaño 1:1) y se estampa de
+   un golpe, y el mar de alrededor se rellena con un patrón repetido. */
+let lienzoTerreno = null, ctxTerreno = null, patronAgua = null;
+
+function repintarCasilla(x, y) {
+  if (!ctxTerreno) return;
+  const dx = (x + 1) * TAM, dy = (y + 1) * TAM;
+  ctxTerreno.clearRect(dx, dy, TAM, TAM);
+  let nombre, voltear = 0;
+  if (!enMapa(x, y)) nombre = spriteMar(x, y);
+  else {
+    const i = y * mundo.ancho + x;
+    nombre = mundo.sprite[i]; voltear = mundo.voltear[i];
+  }
+  const n = indice[nombre];
+  if (n === undefined) return;
+  if (!voltear) {
+    ctxTerreno.drawImage(ATLAS.relleno, n * TAM, 0, TAM, TAM, dx, dy, TAM, TAM);
+    return;
+  }
+  ctxTerreno.save();
+  ctxTerreno.translate(dx, dy + TAM);
+  ctxTerreno.scale(1, -1);
+  ctxTerreno.drawImage(ATLAS.relleno, n * TAM, 0, TAM, TAM, 0, 0, TAM, TAM);
+  ctxTerreno.restore();
+}
+
+/* Un cuadrito de agua suelta, para repetirlo por todo el fondo. */
+function prepararAgua() {
+  const n = indice["lago_agua"];
+  if (n === undefined) return;
+  const c = document.createElement("canvas");
+  c.width = c.height = TAM;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(ATLAS.relleno, n * TAM, 0, TAM, TAM, 0, 0, TAM, TAM);
+  patronAgua = ctx.createPattern(c, "repeat");
+}
+
+function prepararTerreno() {
+  /* un anillo de una casilla alrededor: ahí caen los bordes del agua */
+  lienzoTerreno = document.createElement("canvas");
+  lienzoTerreno.width = (mundo.ancho + 2) * TAM;
+  lienzoTerreno.height = (mundo.alto + 2) * TAM;
+  ctxTerreno = lienzoTerreno.getContext("2d");
+  ctxTerreno.imageSmoothingEnabled = false;
+  for (let y = -1; y <= mundo.alto; y++)
+    for (let x = -1; x <= mundo.ancho; x++) repintarCasilla(x, y);
+  if (!patronAgua) prepararAgua();
+}
 
 function poner(atlas, nombre, x, y, voltear) {
   const n = indice[nombre];
@@ -1053,16 +1127,21 @@ function dibujar() {
   ctx.fillStyle = MARINO;
   ctx.fillRect(0, 0, lienzo.width, lienzo.height);
 
-  const x0 = Math.floor(camX / paso) - 1, y0 = Math.floor(camY / paso) - 1;
-  for (let y = y0; y < y0 + altoVista + 1; y++) {
-    for (let x = x0; x < x0 + anchoVista + 1; x++) {
-      if (!enMapa(x, y)) {
-        poner(ATLAS.relleno, spriteMar(x, y), aX(x), aY(y));   // el mar de alrededor
-        continue;
-      }
-      const i = y * mundo.ancho + x;
-      poner(ATLAS.relleno, mundo.sprite[i], aX(x), aY(y), mundo.voltear[i]);
-    }
+  /* el mar de alrededor: un patrón, una sola pasada */
+  if (patronAgua) {
+    /* el mismo redondeo que usa poner(), o el agua queda un píxel movida */
+    const desX = Math.round(-camX), desY = Math.round(-camY);
+    ctx.save();
+    ctx.setTransform(escala, 0, 0, escala, desX, desY);
+    ctx.fillStyle = patronAgua;
+    ctx.fillRect(-desX / escala, -desY / escala,
+                 lienzo.width / escala, lienzo.height / escala);
+    ctx.restore();
+  }
+  /* y el mapa entero, de una estampa */
+  if (lienzoTerreno) {
+    ctx.drawImage(lienzoTerreno, Math.round(aX(-1)), Math.round(aY(-1)),
+                  lienzoTerreno.width * escala, lienzoTerreno.height * escala);
   }
 
   for (const p of juego.poderes) poner(ATLAS.recorte, "objetos_poderes_" + p.clase, aX(p.x), aY(p.y));
@@ -1070,7 +1149,9 @@ function dibujar() {
   for (const t of juego.tanques) {
     if (!t.vivo) continue;
     const nombre = "tanque_" + t.dir + "_" + (t.cuadro + 1);
-    poner(t.equipo === 0 ? ATLAS.recorte : ATLAS.trama, nombre, aX(t.px), aY(t.py));
+    /* verdes los de tu bando (tú incluido) y rojos los contrarios: en azul
+       se confundían con el terreno, que es del mismo color */
+    poner(t.equipo === 0 ? ATLAS.amigo : ATLAS.enemigo, nombre, aX(t.px), aY(t.py));
   }
 
   for (const c of juego.cohetes) {
@@ -1256,10 +1337,13 @@ document.getElementById("btn-pausa").addEventListener("click", function () {
 
 function empezar(numeroEnemigos) {
   semilla = (Date.now() & 0xffff) + 1;
+  ctxTerreno = null;        // el lienzo del mapa anterior ya no sirve
   /* Si convertir-mapa.mjs dejó un mapa dibujado dentro, se usa ese;
      si no, se inventa uno nuevo para cada partida. */
   if (typeof MAPA_FILAS !== "undefined") cargarMapa();
   else generarMapa(TAMANO_MAPA, TAMANO_MAPA);
+
+  prepararTerreno();        // el mapa se pinta una vez, no cada cuadro
 
   juego.ocupacion = new Array(mundo.ancho * mundo.alto).fill(null);
   juego.tanques = [];
@@ -1273,13 +1357,17 @@ function empezar(numeroEnemigos) {
   /* El jugador arranca lo más cerca posible del centro, pero en un hueco que
      ya exista: abrirlo a la fuerza mordía la montaña o el lago que hubiera
      ahí y dejaba las piezas del dibujo a medias. */
-  let jx = mundo.ancho >> 1, jy = mundo.alto >> 1;
+  juego.eje = ajustes.equipos ? entero(2) : 0;
+  /* sin equipos sales del centro; con equipos, de tu punta */
+  const semX = !ajustes.equipos || juego.eje ? mundo.ancho >> 1 : Math.round(mundo.ancho * 0.14);
+  const semY = ajustes.equipos && juego.eje ? Math.round(mundo.alto * 0.14) : mundo.alto >> 1;
+  let jx = semX, jy = semY;
   busqueda:
   for (let r = 0; r < mundo.ancho; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // solo el anillo
-        const x = (mundo.ancho >> 1) + dx, y = (mundo.alto >> 1) + dy;
+        const x = semX + dx, y = semY + dy;
         if (enMapa(x, y) && pasaTanque(x, y)) { jx = x; jy = y; break busqueda; }
       }
     }
@@ -1294,7 +1382,8 @@ function empezar(numeroEnemigos) {
     for (let intento = 0; intento < 2000; intento++) {
       const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
       if (!pasaTanque(x, y) || ocupada(x, y, null)) continue;
-      if (Math.abs(x - jx) + Math.abs(y - jy) > 12) continue;   // cerca de ti
+      if (!miLado(x, y)) continue;                              // tu punta del mapa
+      if (Math.abs(x - jx) + Math.abs(y - jy) > 20) continue;   // y cerca de ti
       const amigo = nuevoTanque(x, y, false, 0);
       juego.tanques.push(amigo);
       juego.ocupacion[y * mundo.ancho + x] = amigo;
@@ -1319,6 +1408,7 @@ function empezar(numeroEnemigos) {
     }
     const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
     if (!alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
+    if (intentos < 32000 && !suLado(x, y)) continue;   // su punta del mapa
     if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
     if (x === jx || y === jy) continue;   // nunca en linea de tiro directa
     /* ni pegados entre ellos: amontonados se destrozan nada más empezar */
@@ -1347,6 +1437,7 @@ const DIRECCION_TECLA = {
 };
 
 function pulsar(code) {
+  if (DIRECCION_TECLA[code] && juego.jugador) juego.jugador.encolado = DIRECCION_TECLA[code];
   if (!DIRECCION_TECLA[code]) { teclas[code] = true; return; }
   const i = ordenDirecciones.indexOf(code);
   if (i !== -1) ordenDirecciones.splice(i, 1);
@@ -1378,20 +1469,31 @@ addEventListener("blur", () => {
   ordenDirecciones.length = 0;
 });
 
-/* Mando táctil */
+/* Mando táctil.
+   El dedo se queda "agarrado" al botón que pulsó (setPointerCapture): antes,
+   al resbalar un poco fuera saltaba pointerleave y el tanque se paraba solo. */
 const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
 for (const boton of document.querySelectorAll("#mando [data-dir]")) {
   const code = mapaTactil[boton.dataset.dir];
-  const on  = (e) => { e.preventDefault(); pulsar(code); };
-  const off = (e) => { e.preventDefault(); soltar(code); };
-  boton.addEventListener("pointerdown", on);
-  boton.addEventListener("pointerup", off);
-  boton.addEventListener("pointercancel", off);
-  boton.addEventListener("pointerleave", off);
+  boton.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    try { boton.setPointerCapture(e.pointerId); } catch (err) {}
+    pulsar(code);
+  });
+  const soltarlo = (e) => { e.preventDefault(); soltar(code); };
+  boton.addEventListener("pointerup", soltarlo);
+  boton.addEventListener("pointercancel", soltarlo);
 }
 const fuego = document.getElementById("fuego");
-fuego.addEventListener("pointerdown", (e) => { e.preventDefault(); teclas.KeyO = true; });
-fuego.addEventListener("pointerup",   (e) => { e.preventDefault(); teclas.KeyO = false; });
+fuego.addEventListener("pointerdown", function (e) {
+  e.preventDefault();
+  try { fuego.setPointerCapture(e.pointerId); } catch (err) {}
+  teclas.KeyO = true;
+  if (juego.jugador) disparar(juego.jugador);     // el toque dispara ya, sin esperar al cuadro
+});
+const sueltaFuego = (e) => { e.preventDefault(); teclas.KeyO = false; };
+fuego.addEventListener("pointerup", sueltaFuego);
+fuego.addEventListener("pointercancel", sueltaFuego);
 
 /* ───────────────── Marcha ───────────────── */
 
@@ -1404,7 +1506,9 @@ function cuadro(ahora) {
 }
 
 /* API mínima para probar el juego desde la consola */
-window.TANQUES = { juego, empezar, mundo, teclas, disparar, mover, actualizar };
+window.TANQUES = { juego, empezar, mundo, teclas, disparar, mover, actualizar,
+  ajustes, dibujar, get escala() { return escala; }, get terreno() { return lienzoTerreno; },
+  get agua() { return patronAgua; } };
 
 ajustarLienzo();
 empezar();

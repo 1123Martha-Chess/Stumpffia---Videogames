@@ -16,6 +16,10 @@
   --apagado:#8FB4D8;
   --tarjeta:#13295E;
   --borde:rgba(126,200,242,.22);
+
+  /* Círculo pixelado: el contorno de un círculo rasterizado en una rejilla de
+     16×16 celdas. Va en porcentajes, así que escalona igual en cualquier botón. */
+  --circulo-pixel:polygon(68.75% 0%,68.75% 6.25%,81.25% 6.25%,81.25% 12.5%,87.5% 12.5%,87.5% 18.75%,93.75% 18.75%,93.75% 25%,93.75% 31.25%,100% 31.25%,100% 37.5%,100% 43.75%,100% 50%,100% 56.25%,100% 62.5%,100% 68.75%,93.75% 68.75%,93.75% 75%,93.75% 81.25%,87.5% 81.25%,87.5% 87.5%,81.25% 87.5%,81.25% 93.75%,68.75% 93.75%,68.75% 100%,31.25% 100%,31.25% 93.75%,18.75% 93.75%,18.75% 87.5%,12.5% 87.5%,12.5% 81.25%,6.25% 81.25%,6.25% 75%,6.25% 68.75%,0% 68.75%,0% 62.5%,0% 56.25%,0% 50%,0% 43.75%,0% 37.5%,0% 31.25%,6.25% 31.25%,6.25% 25%,6.25% 18.75%,12.5% 18.75%,12.5% 12.5%,18.75% 12.5%,18.75% 6.25%,31.25% 6.25%,31.25% 0%);
 }
 
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -189,9 +193,8 @@ body {
 .cruz::after {                /* el eje del centro */
   content:""; position:absolute; left:50%; top:50%; width:20px; height:20px;
   transform:translate(-50%,-50%);
-  background:var(--carcasa);
-  box-shadow:inset 0 0 0 2px var(--bajo);
-  clip-path:polygon(7px 0,13px 0,16px 3px,20px 7px,20px 13px,16px 17px,13px 20px,7px 20px,4px 17px,0 13px,0 7px,4px 3px);
+  background:var(--bajo);
+  clip-path:var(--circulo-pixel);
 }
 .cruz button { grid-area:var(--pos); }
 .mando button {
@@ -205,15 +208,21 @@ body {
 .mando button:active { background:var(--claro); color:var(--marino); box-shadow:inset 0 0 0 2px var(--claro); }
 
 .acciones { display:flex; align-items:center; gap:10px; }
-/* Cuadrados con la esquina mordida: un píxel no sabe hacer círculos. */
-.accion {
-  width:96px; height:96px; font-size:14px;
-  clip-path:polygon(
-    12px 0, calc(100% - 12px) 0, calc(100% - 6px) 6px, 100% 12px,
-    100% calc(100% - 12px), calc(100% - 6px) calc(100% - 6px), calc(100% - 12px) 100%,
-    12px 100%, 6px calc(100% - 6px), 0 calc(100% - 12px), 0 12px, 6px 6px);
+.mando .accion {
+  width:96px; height:96px; font-size:14px; position:relative; padding:0;
+  background:var(--claro);
+  box-shadow:none;              /* el bisel recto no cabe en un círculo */
+  clip-path:var(--circulo-pixel);
 }
-.accion.chico { width:62px; height:62px; font-size:10px; }
+.mando .accion > span {
+  position:absolute; inset:4px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--carcasa); color:var(--claro);
+  clip-path:var(--circulo-pixel);
+}
+.mando .accion:active > span { background:var(--claro); color:var(--marino); }
+.mando .accion.chico { width:62px; height:62px; font-size:10px; }
+.mando .accion.chico > span { inset:3px; }
 
 /* ═════════════════ el televisor (escritorio) ═════════════════ */
 
@@ -273,12 +282,13 @@ body {
   /* derecha: tres perillas y el botón de encendido */
   .perilla {
     width:76px; height:76px; flex:none; position:relative;
+    background:var(--claro);
+    clip-path:var(--circulo-pixel);
+  }
+  .perilla::before {            /* el cuerpo, dejando el aro claro de fuera */
+    content:""; position:absolute; inset:4px;
     background:var(--carcasa);
-    box-shadow:inset 0 0 0 3px var(--claro), inset 4px 4px 0 3px var(--alto), inset -4px -4px 0 3px var(--bajo);
-    clip-path:polygon(
-      10px 0, calc(100% - 10px) 0, calc(100% - 5px) 5px, 100% 10px,
-      100% calc(100% - 10px), calc(100% - 5px) calc(100% - 5px), calc(100% - 10px) 100%,
-      10px 100%, 5px calc(100% - 5px), 0 calc(100% - 10px), 0 10px, 5px 5px);
+    clip-path:var(--circulo-pixel);
   }
   .perilla::after {           /* la ranura, recta */
     content:""; position:absolute; left:50%; top:24%;

@@ -271,7 +271,7 @@ const juego = {
 function nuevoRenacuajo(x, y, teclas, nombre) {
   return {
     cuerpo: [{ x: x, y: y }],
-    dir: "derecha", siguiente: "derecha",
+    dir: "derecha", siguiente: "derecha", fila: [],
     teclas: teclas, nombre: nombre,
     vivo: true, crecer: 2,
     congelado: 0, rapido: 0, invertido: 0
@@ -342,7 +342,7 @@ function empezar() {
   if (modoActivo("doble")) {
     const dos = nuevoRenacuajo(Math.floor(juego.ancho * 3 / 4), y,
       { KeyI:"arriba", KeyK:"abajo", KeyJ:"izquierda", KeyL:"derecha" }, "Dos");
-    dos.dir = dos.siguiente = "izquierda";
+    dos.dir = dos.siguiente = "izquierda"; dos.fila = [];
     juego.renacuajos.push(dos);
   }
   document.body.classList.toggle("dos", modoActivo("doble"));
@@ -367,6 +367,7 @@ function avanzar(r) {
   if (!r.vivo) return;
   if (r.congelado > 0) return;
 
+  if (r.fila.length) r.siguiente = r.fila.shift();   // el giro que esperaba turno
   r.dir = r.siguiente;
   const d = DIRS[r.dir];
   const cabeza = r.cuerpo[0];
@@ -418,6 +419,7 @@ function comer(r, alga) {
   if (modoActivo("voltear")) {
     r.cuerpo.reverse();
     const cabeza = r.cuerpo[0], segundo = r.cuerpo[1] || cabeza;
+    r.fila.length = 0;
     r.dir = r.siguiente =
       cabeza.x > segundo.x ? "derecha" : cabeza.x < segundo.x ? "izquierda" :
       cabeza.y > segundo.y ? "abajo" : "arriba";
@@ -718,8 +720,12 @@ function pulsar(code) {
     let quiere = r.teclas[code];
     if (!quiere) continue;
     if (r.invertido > 0) quiere = CONTRARIA[quiere];
-    if (r.cuerpo.length > 1 && quiere === CONTRARIA[r.dir]) return;  // no se da la vuelta en seco
-    r.siguiente = quiere;
+    /* se compara con el último giro pedido, no con el actual, o una curva
+       rápida acabaría dándose la vuelta encima de sí misma */
+    const ultima = r.fila.length ? r.fila[r.fila.length - 1] : r.siguiente;
+    if (r.cuerpo.length > 1 && quiere === CONTRARIA[ultima]) return;
+    if (quiere === ultima) return;
+    if (r.fila.length < 2) r.fila.push(quiere);
     return;
   }
 }
@@ -755,7 +761,7 @@ function marco(ahora) {
   if (juego.ancho) { dibujar(); pintarMarcador(); }
 }
 
-window.RENACUAJO = { juego, ajustes, empezar, actualizar, pulsar, abrirAjustes,
+window.RENACUAJO = { juego, ajustes, empezar, actualizar, dibujar, pulsar, abrirAjustes,
                      ponerAlga, modoActivo, TAMANOS, MODOS, DIRS };
 
 leerAjustes();

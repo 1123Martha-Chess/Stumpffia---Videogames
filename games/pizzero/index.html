@@ -71,7 +71,7 @@
       <button data-dir="abajo"     style="--pos:3/2">▼</button>
     </div>
     <div class="acciones">
-      <button class="accion chico" id="btn-pausa2">II</button>
+      <button class="accion chico" id="btn-pausa2"><span>II</span></button>
     </div>
   </div>
 </div>
@@ -418,6 +418,7 @@ function asfaltar() {
 }
 
 function construir(lado) {
+  if (typeof trozos !== "undefined") trozos.clear();   // la ciudad cambió
   ciudad.ancho = lado; ciudad.alto = lado;
   const n = lado * lado;
   ciudad.casilla = new Int16Array(n).fill(-1);
@@ -766,6 +767,36 @@ function nombreDelJugador() {
   return f.sprite + "_" + jugador.dir + "_con_pizzero_" + mov;
 }
 
+/* ── La ciudad, guardada en trozos ──────────────────────────────────
+   Dibujarla casilla por casilla costaba casi un cuadro y medio en cada
+   vuelta. Ahora se guarda en cuadros de 32×32 casillas ya pintados y en
+   pantalla solo se estampan los cuatro o nueve que se ven. La ciudad
+   entera no cabría: con el auto llega a 192×192 casillas. */
+const TROZO = 32;
+const trozos = new Map();
+
+function trozoDe(cx, cy) {
+  const clave = cx + "," + cy;
+  let c = trozos.get(clave);
+  if (c) return c;
+  if (trozos.size > 24) trozos.clear();        // la ciudad creció o te fuiste lejos
+  c = document.createElement("canvas");
+  c.width = c.height = TROZO * TAM;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  for (let j = 0; j < TROZO; j++) {
+    for (let i = 0; i < TROZO; i++) {
+      const x = cx * TROZO + i, y = cy * TROZO + j;
+      if (!dentro(x, y)) continue;
+      const n = ciudad.casilla[y * ciudad.ancho + x];
+      if (n < 0) continue;
+      g.drawImage(ATLAS_PIEZAS, n * TAM, 0, TAM, TAM, i * TAM, j * TAM, TAM, TAM);
+    }
+  }
+  trozos.set(clave, c);
+  return c;
+}
+
 function dibujar() {
   const paso = TAM * escala;
   const camX = jugador.x * paso - lienzo.width / 2;
@@ -783,14 +814,26 @@ function dibujar() {
   const cols = Math.ceil(lienzo.width / paso) + 2;
   const fils = Math.ceil(lienzo.height / paso) + 2;
 
-  for (let y = y0; y < y0 + fils; y++) {
-    for (let x = x0; x < x0 + cols; x++) {
+  /* la calle y las casas, de trozo en trozo */
+  const lado = TROZO * TAM * escala;
+  const cx0 = Math.floor(x0 / TROZO), cx1 = Math.floor((x0 + cols) / TROZO);
+  const cy0 = Math.floor(y0 / TROZO), cy1 = Math.floor((y0 + fils) / TROZO);
+  for (let cy = cy0; cy <= cy1; cy++) {
+    for (let cx = cx0; cx <= cx1; cx++) {
+      if (cx < 0 || cy < 0 || cx * TROZO >= ciudad.ancho || cy * TROZO >= ciudad.alto) continue;
+      ctx.drawImage(trozoDe(cx, cy),
+                    aX(cx * TROZO), aY(cy * TROZO), lado, lado);
+    }
+  }
+
+  /* y encima, parpadeando, las casas donde toca entregar */
+  if (latido) {
+    for (const clave of destinos) {
+      const c = clave.split(","), x = +c[0], y = +c[1];
       if (!dentro(x, y)) continue;
       const n = ciudad.casilla[y * ciudad.ancho + x];
       if (n < 0) continue;
-      const marcada = latido && destinos.has(x + "," + y);
-      ctx.drawImage(marcada ? ATLAS_PIEZAS_MARCADA : ATLAS_PIEZAS,
-                    n * TAM, 0, TAM, TAM, aX(x), aY(y), paso, paso);
+      ctx.drawImage(ATLAS_PIEZAS_MARCADA, n * TAM, 0, TAM, TAM, aX(x), aY(y), paso, paso);
     }
   }
 
@@ -1001,10 +1044,16 @@ addEventListener("blur", function () {
 const mapaTactil = { arriba:"ArrowUp", abajo:"ArrowDown", izquierda:"ArrowLeft", derecha:"ArrowRight" };
 for (const boton of document.querySelectorAll("#mando [data-dir]")) {
   const code = mapaTactil[boton.dataset.dir];
-  boton.addEventListener("pointerdown", function (e) { e.preventDefault(); pulsar(code); });
-  boton.addEventListener("pointerup", function (e) { e.preventDefault(); soltar(code); });
-  boton.addEventListener("pointercancel", function (e) { e.preventDefault(); soltar(code); });
-  boton.addEventListener("pointerleave", function (e) { e.preventDefault(); soltar(code); });
+  /* el dedo se queda agarrado al botón: al resbalar un poco fuera, antes
+     saltaba pointerleave y el pizzero se paraba solo */
+  boton.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    try { boton.setPointerCapture(e.pointerId); } catch (err) {}
+    pulsar(code);
+  });
+  const soltarlo = function (e) { e.preventDefault(); soltar(code); };
+  boton.addEventListener("pointerup", soltarlo);
+  boton.addEventListener("pointercancel", soltarlo);
 }
 
 /* ───────────────── Marcha ───────────────── */
@@ -1020,7 +1069,7 @@ function cuadro(ahora) {
   pintarMarcador();
 }
 
-window.PIZZERO = { juego, jugador, ciudad, trafico, empezar, actualizar,
+window.PIZZERO = { juego, jugador, ciudad, trafico, empezar, actualizar, dibujar,
                    recoger, entregar, agregarManzana, generarCiudad, nacerTrafico,
                    libre, solidoEn, esCalle, FASES, plazoPizza, pulsar, soltar,
                    minimapa: function () { verMinimapa = true; },
