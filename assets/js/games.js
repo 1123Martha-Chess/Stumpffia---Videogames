@@ -26,7 +26,7 @@ window.STUMPFFIA = {
       id: "tanques",
       nombre: "Tanques",
       emoji: "💥",
-      desc: "Cuarenta y cinco tanques enemigos, llegando sin parar. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.",
+      desc: "Tú eliges cuántos tanques y si peleas solo o con gente de tu lado.",
       peso: "17 KB",
       pronto: false
     },

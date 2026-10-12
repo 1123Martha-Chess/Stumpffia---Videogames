@@ -69,6 +69,7 @@
 
     <div class="botonera">
       <button id="btn-pausa">PAUSA</button>
+      <button id="btn-ajustes">AJUSTES</button>
       <a href="/">SALIR</a>
     </div>
 
@@ -525,7 +526,19 @@ const MUNICION_MAX = 5;      // "solo 5 balas"
 const RECARGA = 2;           // un cohete cada 2 segundos
 const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
 const ALCANCE = 20;          // casillas que vuela un cohete
-const ENEMIGOS = 45;         // cuántos tanques enemigos hay que destruir en total
+/* Ajustes que elige el jugador y se guardan en el aparato. */
+const ajustes = { tanques: 45, equipos: false, aliados: 6 };
+try {
+  const g = JSON.parse(localStorage.getItem("stumpffia:tanques:ajustes") || "{}");
+  if (typeof g.tanques === "number") ajustes.tanques = Math.min(200, Math.max(3, g.tanques));
+  if (typeof g.equipos === "boolean") ajustes.equipos = g.equipos;
+  if (typeof g.aliados === "number") ajustes.aliados = Math.min(20, Math.max(1, g.aliados));
+} catch (e) {}
+function guardarAjustes() {
+  try { localStorage.setItem("stumpffia:tanques:ajustes", JSON.stringify(ajustes)); } catch (e) {}
+}
+
+const ENEMIGOS = 45;         // valor de partida; manda ajustes.tanques
 /* Cuántos pueden estar a la vez sobre el mapa. Con los 45 sueltos de golpe se
    declaran la guerra entre ellos: 30 caen en los diez primeros segundos sin
    que tú dispares. Por tandas llegan sin parar y la pelea es tuya.
@@ -540,12 +553,13 @@ const PERSECUCION = 24;      // radio en el que se pone en marcha hacia él
 const PERSECUCION_EXTRA = 2;
 const GRACIA = 1;            // segundos invulnerable tras recibir un impacto
 
-function nuevoTanque(x, y, esJugador) {
+function nuevoTanque(x, y, esJugador, equipo) {
   return {
     x, y,                    // casilla actual
     px: x, py: y,            // posición dibujada (se desliza hacia x,y)
     dir: esJugador ? "arriba" : "abajo",
     jugador: esJugador,
+    equipo: equipo === undefined ? (esJugador ? 0 : 1) : equipo,
     vida: VIDA_MAX,
     municion: MUNICION_MAX,
     recarga: 0,
@@ -686,7 +700,8 @@ function herir(t, dano) {
     if (juego.ocupacion[t.y * mundo.ancho + t.x] === t) juego.ocupacion[t.y * mundo.ancho + t.x] = null;
     explotar(t.x, t.y);
     if (t.jugador) terminar("perdiste");
-    else if (juego.porSalir === 0 && juego.tanques.every((o) => o.jugador || !o.vivo)) terminar("ganaste");
+    else if (juego.porSalir === 0 &&
+             juego.tanques.every((o) => o.equipo === 0 || !o.vivo)) terminar("ganaste");
   }
 }
 
@@ -776,7 +791,7 @@ function soltarEnemigo(jx, jy) {
     }
     if (apinado) continue;
 
-    const enemigo = nuevoTanque(x, y, false);
+    const enemigo = nuevoTanque(x, y, false, 1);
     juego.tanques.push(enemigo);
     juego.ocupacion[y * mundo.ancho + x] = enemigo;
     return true;
@@ -816,6 +831,7 @@ function pensarEnemigo(t, dt) {
   let cerca = null, mejor = Infinity;
   for (const o of juego.tanques) {
     if (!o.vivo || o === t || o === t.harto) continue;
+    if (o.equipo === t.equipo) continue;      // a los tuyos no
     const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
     if (dist > radio) continue;
     if (dist < mejor) { mejor = dist; cerca = o; }
@@ -823,7 +839,7 @@ function pensarEnemigo(t, dt) {
   if (!cerca && t.harto) {            // si no queda nadie más, vuelve a él
     t.harto = null;
     for (const o of juego.tanques) {
-      if (!o.vivo || o === t) continue;
+      if (!o.vivo || o === t || o.equipo === t.equipo) continue;
       const dist = Math.abs(o.x - t.x) + Math.abs(o.y - t.y);
       if (dist < mejor && dist <= radio) { mejor = dist; cerca = o; }
     }
@@ -883,7 +899,7 @@ function actualizar(dt) {
   juego.tiempo += dt;
   refrescarOcupacion();
   juego.enemigosVivos = 0;
-  for (const t of juego.tanques) if (!t.jugador && t.vivo) juego.enemigosVivos++;
+  for (const t of juego.tanques) if (t.equipo !== 0 && t.vivo) juego.enemigosVivos++;
 
   /* van entrando de relevo conforme caen */
   if (juego.porSalir > 0 && juego.enemigosVivos < A_LA_VEZ) {
@@ -1054,7 +1070,7 @@ function dibujar() {
   for (const t of juego.tanques) {
     if (!t.vivo) continue;
     const nombre = "tanque_" + t.dir + "_" + (t.cuadro + 1);
-    poner(t.jugador ? ATLAS.recorte : ATLAS.trama, nombre, aX(t.px), aY(t.py));
+    poner(t.equipo === 0 ? ATLAS.recorte : ATLAS.trama, nombre, aX(t.px), aY(t.py));
   }
 
   for (const c of juego.cohetes) {
@@ -1079,7 +1095,13 @@ function pintarMarcador() {
   const j = juego.jugador;
   elVida.textContent = "♥".repeat(Math.max(0, j.vida)) + "·".repeat(VIDA_MAX - Math.max(0, j.vida));
   elMunicion.textContent = j.municion + "/" + municionMax(j);
-  elEnemigos.textContent = juego.tanques.filter((t) => !t.jugador && t.vivo).length + juego.porSalir;
+  elEnemigos.textContent = juego.tanques.filter((t) => t.equipo !== 0 && t.vivo).length + juego.porSalir;
+  if (ajustes.equipos) {
+    const amigos = juego.tanques.filter((t) => t.equipo === 0 && !t.jugador && t.vivo).length;
+    elPoder.firstElementChild.textContent = "LOS TUYOS";
+    elPoder.lastElementChild.textContent = amigos;
+    elPoder.classList.add("visible");
+  }
 
   const activos = [];
   if (j.superCohete) activos.push("SUPERCOHETE");
@@ -1094,6 +1116,7 @@ function pintarMarcador() {
 
 const capa = document.getElementById("capa");
 const capaTitulo = document.getElementById("capa-titulo");
+const capaReglas = document.getElementById("capa-reglas");
 const capaTexto = document.getElementById("capa-texto");
 const capaBoton = document.getElementById("capa-boton");
 
@@ -1124,9 +1147,9 @@ function terminar(resultado) {
   juego.estado = resultado;
   if (resultado === "ganaste") {
     window.__verReglas = true;
-    mostrarCapa("¡Ganaste!", "Acabaste con los " + ENEMIGOS + " tanques enemigos.", "Jugar otra vez");
+    mostrarCapa("¡Ganaste!", "Acabaste con los " + ajustes.tanques + " tanques enemigos.", "Jugar otra vez");
   } else {
-    const caidos = ENEMIGOS - juego.tanques.filter((t) => !t.jugador && t.vivo).length - juego.porSalir;
+    const caidos = ajustes.tanques - juego.tanques.filter((t) => !t.jugador && t.vivo).length - juego.porSalir;
     window.__verReglas = true;
     mostrarCapa("Perdiste", "Tu tanque fue destruido. Te llevaste " + caidos + " por delante.", "Intentar otra vez");
   }
@@ -1137,7 +1160,7 @@ function abrirMenu() {
   juego.estado = "menu";
   window.__enPantalla = true;
   const quedan = juego.tanques.filter((t) => !t.jugador && t.vivo).length + juego.porSalir;
-  mostrarCapa("Pausa", "Quedan " + quedan + " de " + ENEMIGOS + " tanques enemigos.", "Seguir jugando");
+  mostrarCapa("Pausa", "Quedan " + quedan + " de " + ajustes.tanques + " tanques enemigos.", "Seguir jugando");
 }
 
 function botonCapa() {
@@ -1149,6 +1172,82 @@ function botonCapa() {
   }
 }
 capaBoton.addEventListener("click", botonCapa);
+
+/* ───────────────── Ajustes antes de jugar ───────────────── */
+
+function filaAjuste(etiqueta) {
+  const d = document.createElement("div");
+  d.className = "ajuste";
+  d.style.cssText = "display:flex;align-items:center;gap:12px;justify-content:space-between";
+  const s = document.createElement("span"); s.textContent = etiqueta;
+  d.appendChild(s);
+  return d;
+}
+
+function contador(valor, minimo, maximo, salto, alCambiar) {
+  const c = document.createElement("div");
+  c.className = "contador";
+  c.style.cssText = "display:flex;align-items:center;gap:8px";
+  const menos = document.createElement("button"); menos.textContent = "−";
+  const b = document.createElement("b"); b.textContent = valor;
+  const mas = document.createElement("button"); mas.textContent = "+";
+  for (const x of [menos, mas]) x.style.cssText = "width:38px;height:38px;padding:0;font-size:15px";
+  b.style.cssText = "min-width:56px;text-align:center;font-size:15px";
+  menos.addEventListener("click", function () {
+    valor = Math.max(minimo, valor - salto); b.textContent = valor; alCambiar(valor);
+  });
+  mas.addEventListener("click", function () {
+    valor = Math.min(maximo, valor + salto); b.textContent = valor; alCambiar(valor);
+  });
+  c.appendChild(menos); c.appendChild(b); c.appendChild(mas);
+  return c;
+}
+
+function abrirAjustes() {
+  juego.estado = "menu";
+  capa.classList.remove("dentro");
+  capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  capaTitulo.textContent = "Ajustes";
+  capaTexto.textContent = "Cuántos tanques enemigos y si peleas solo o con gente de tu lado.";
+  capaBoton.textContent = "Jugar";
+  capaReglas.classList.remove("oculto");
+  capaReglas.innerHTML = "";
+
+  const caja = document.createElement("div");
+  caja.className = "ajustes";
+  caja.style.cssText = "display:grid;gap:14px";
+
+  const fT = filaAjuste("Tanques enemigos");
+  fT.appendChild(contador(ajustes.tanques, 3, 200, 5, function (v) { ajustes.tanques = v; guardarAjustes(); }));
+  caja.appendChild(fT);
+
+  const fM = filaAjuste("Partida");
+  const op = document.createElement("div");
+  op.className = "opciones";
+  op.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1";
+  [["Uno contra todos", false], ["Por equipos", true]].forEach(function (par) {
+    const b = document.createElement("button");
+    b.textContent = par[0];
+    b.style.cssText = "width:100%;padding:11px 6px;font-size:11px";
+    b.setAttribute("aria-pressed", String(ajustes.equipos === par[1]));
+    b.addEventListener("click", function () {
+      ajustes.equipos = par[1]; guardarAjustes(); abrirAjustes();
+    });
+    op.appendChild(b);
+  });
+  fM.appendChild(op);
+  caja.appendChild(fM);
+
+  if (ajustes.equipos) {
+    const fA = filaAjuste("Tanques de tu lado");
+    fA.appendChild(contador(ajustes.aliados, 1, 20, 1, function (v) { ajustes.aliados = v; guardarAjustes(); }));
+    caja.appendChild(fA);
+  }
+
+  capaReglas.appendChild(caja);
+  capa.classList.add("visible");
+}
+document.getElementById("btn-ajustes").addEventListener("click", abrirAjustes);
 document.getElementById("btn-pausa").addEventListener("click", function () {
   if (juego.estado === "jugando") abrirMenu(); else botonCapa();
 });
@@ -1185,11 +1284,25 @@ function empezar(numeroEnemigos) {
       }
     }
   }
-  juego.jugador = nuevoTanque(jx, jy, true);
+  juego.jugador = nuevoTanque(jx, jy, true, 0);
   juego.tanques.push(juego.jugador);
   juego.ocupacion[jy * mundo.ancho + jx] = juego.jugador;
 
-  const total = numeroEnemigos === undefined ? ENEMIGOS : numeroEnemigos;
+  /* Por equipos: unos cuantos tanques pelean de tu lado. */
+  juego.aliados = ajustes.equipos ? ajustes.aliados : 0;
+  for (let i = 0; i < juego.aliados; i++) {
+    for (let intento = 0; intento < 2000; intento++) {
+      const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
+      if (!pasaTanque(x, y) || ocupada(x, y, null)) continue;
+      if (Math.abs(x - jx) + Math.abs(y - jy) > 12) continue;   // cerca de ti
+      const amigo = nuevoTanque(x, y, false, 0);
+      juego.tanques.push(amigo);
+      juego.ocupacion[y * mundo.ancho + x] = amigo;
+      break;
+    }
+  }
+
+  const total = numeroEnemigos === undefined ? ajustes.tanques : numeroEnemigos;
   const cuantos = Math.min(total, A_LA_VEZ);
   juego.porSalir = total - cuantos;
   juego.relevo = 1.2;
@@ -1215,7 +1328,7 @@ function empezar(numeroEnemigos) {
       if (Math.abs(o.x - x) + Math.abs(o.y - y) < separacion) { apinado = true; break; }
     }
     if (apinado) continue;
-    const enemigo = nuevoTanque(x, y, false);
+    const enemigo = nuevoTanque(x, y, false, 1);
     juego.tanques.push(enemigo);
     juego.ocupacion[y * mundo.ancho + x] = enemigo;
     puestos++;
@@ -1297,7 +1410,7 @@ ajustarLienzo();
 empezar();
 juego.estado = "menu";
 window.__verReglas = true;
-mostrarCapa("Tanques", "Acaba con los " + ENEMIGOS + " tanques enemigos. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.", "Jugar");
+mostrarCapa("Tanques", "Acaba con los " + ajustes.tanques + " tanques enemigos. Los lagos dejan pasar los cohetes; lo demás hay que romperlo.", "Jugar");
 requestAnimationFrame(cuadro);
 </script>
 
