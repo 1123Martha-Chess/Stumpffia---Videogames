@@ -372,7 +372,17 @@ body {
 /* dentro de los ajustes, los botones vuelven a su tamaño */
 .capa .tarjeta .ajustes button { width:auto; min-height:0; margin:0; box-shadow:inset 0 0 0 2px var(--borde); }
 .capa .tarjeta .ajustes button:active { transform:none; }
-.capa .tarjeta .opciones button[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--claro); }
+/* Dentro de la tarjeta, ".capa .tarjeta button" pintaba de claro TODOS los
+   botones, incluidas las opciones sin elegir: las dos se veían igual y no se
+   sabía cuál estaba puesta. Aquí se devuelven a su sitio. */
+.capa .tarjeta .opciones button {
+  background:var(--carcasa); color:var(--claro);
+  box-shadow:inset 0 0 0 2px var(--borde);
+}
+.capa .tarjeta .opciones button[aria-pressed="true"] {
+  background:var(--claro); color:var(--marino);
+  box-shadow:inset 0 0 0 2px var(--claro);
+}
 .capa .tarjeta .modo { width:100%; }
 
 /* En pantalla grande la tarjeta de ajustes se ensancha y las opciones se

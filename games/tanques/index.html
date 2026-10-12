@@ -152,7 +152,15 @@ function encendido(n, x, y) {
      recorte  — el 0 queda transparente (para tanques, cohetes, objetos)
    y, con un color propio, los bandos: verde los tuyos, rojo los contrarios,
    para saber de un vistazo a quién le estás disparando. */
-const VERDE = [0x6f, 0xe3, 0xa8], ROJO = [0xf2, 0x70, 0x5b];
+/* El color de cada bando. El 0 siempre es el tuyo. */
+const TINTAS = [
+  [0x6f, 0xe3, 0xa8],   // verde
+  [0xf2, 0x70, 0x5b],   // rojo
+  [0xf2, 0xd3, 0x5b],   // amarillo
+  [0xb9, 0x8b, 0xf2],   // morado
+  [0xff, 0xff, 0xff]    // blanco
+];
+const NOMBRE_BANDO = ["VERDES", "ROJOS", "AMARILLOS", "MORADOS", "BLANCOS"];
 function construirAtlas(modo, tinta) {
   const lienzo = document.createElement("canvas");
   lienzo.width = TAM * NOMBRES.length;
@@ -186,9 +194,15 @@ function construirAtlas(modo, tinta) {
 const ATLAS = {
   relleno: construirAtlas("relleno"),
   recorte: construirAtlas("recorte"),
-  amigo:   construirAtlas("recorte", VERDE),
-  enemigo: construirAtlas("recorte", ROJO)
+  bandos:  TINTAS.map((t) => construirAtlas("recorte", t))
 };
+
+/* En "uno contra todos" cada tanque es su propio bando, así que ahí el color
+   solo dice si eres tú o no. Por equipos, cada bando lleva el suyo. */
+function tintaDe(t) {
+  if (!ajustes.equipos) return t.equipo === 0 ? 0 : 1;
+  return t.equipo % TINTAS.length;
+}
 
 /* ───────────────── El mundo ───────────────── */
 
@@ -529,12 +543,28 @@ const RECARGA = 2;           // un cohete cada 2 segundos
 const REGENERACION = 15;     // vuelve una vida tras 15 s sin recibir daño
 const ALCANCE = 20;          // casillas que vuela un cohete
 /* Ajustes que elige el jugador y se guardan en el aparato. */
-const ajustes = { tanques: 45, equipos: false, aliados: 6 };
+const MAX_EQUIPOS = 5;       // no hay más colores que distinguir de un vistazo
+const POR_EQUIPO_MAX = 50;
+const ajustes = {
+  tanques: 45,               // solo cuenta en "uno contra todos"
+  equipos: false,
+  bandos: 2,                 // cuántos equipos pelean
+  porBando: [6, 6, 6, 6, 6]  // cuántos tanques tiene cada uno, tú incluido
+};
 try {
   const g = JSON.parse(localStorage.getItem("stumpffia:tanques:ajustes") || "{}");
   if (typeof g.tanques === "number") ajustes.tanques = Math.min(200, Math.max(3, g.tanques));
   if (typeof g.equipos === "boolean") ajustes.equipos = g.equipos;
-  if (typeof g.aliados === "number") ajustes.aliados = Math.min(20, Math.max(1, g.aliados));
+  if (typeof g.bandos === "number") ajustes.bandos = Math.min(MAX_EQUIPOS, Math.max(2, g.bandos));
+  if (Array.isArray(g.porBando)) {
+    for (let k = 0; k < MAX_EQUIPOS; k++) {
+      const v = g.porBando[k];
+      if (typeof v === "number") ajustes.porBando[k] = Math.min(POR_EQUIPO_MAX, Math.max(1, v));
+    }
+  } else if (typeof g.aliados === "number") {       // ajustes de la versión anterior
+    ajustes.porBando[0] = Math.min(POR_EQUIPO_MAX, Math.max(1, g.aliados + 1));
+    ajustes.porBando[1] = ajustes.porBando[0];
+  }
 } catch (e) {}
 function guardarAjustes() {
   try { localStorage.setItem("stumpffia:tanques:ajustes", JSON.stringify(ajustes)); } catch (e) {}
@@ -593,7 +623,9 @@ function nuevoTanque(x, y, esJugador, equipo) {
 const juego = {
   estado: "menu",            // menu | jugando | ganaste | perdiste
   enemigosVivos: 0,
-  porSalir: 0,
+  bandos: 1,                 // cuántos equipos pelean esta partida
+  anguloBase: 0,             // hacia dónde mira el reparto de rincones
+  porSalir: [],              // los que a cada bando le faltan por entrar
   alcanzable: null,
   relevo: 0,
   jugador: null,
@@ -632,7 +664,7 @@ function disparar(t) {
      antes nacía dentro y solo se comprobaba al avanzar, así que atravesaba
      a un tanque pegado sin tocarlo. */
   const pegado = juego.tanques.some(
-    (o) => o.vivo && o !== t &&
+    (o) => o.vivo && o !== t && o.equipo !== t.equipo &&
            Math.abs(o.px - c.x) < 0.8 && Math.abs(o.py - c.y) < 0.8);
 
   if (pegado || !enMapa(c.x, c.y) || !pasaBala(c.x, c.y)) {
@@ -682,9 +714,11 @@ function impactar(c) {
   }
 
   /* Los tanques se comprueban por donde se ven, no por la casilla a la que
-     van: si no, uno que está deslizándose entre dos casillas se libra. */
+     van: si no, uno que está deslizándose entre dos casillas se libra.
+     A los del mismo bando no les pasa nada: ni al que dispara ni a los suyos. */
   for (const t of juego.tanques) {
     if (!t.vivo || t === c.de) continue;
+    if (c.de && t.equipo === c.de.equipo) continue;
     const dx = Math.abs(t.px - c.x), dy = Math.abs(t.py - c.y);
     const dentro = c.super        ? (dx <= 1.4 && dy <= 1.4)   // cuadro de 3x3
                  : delJugador     ? (dx + dy <= 1.4)            // cruz
@@ -703,8 +737,7 @@ function herir(t, dano) {
     if (juego.ocupacion[t.y * mundo.ancho + t.x] === t) juego.ocupacion[t.y * mundo.ancho + t.x] = null;
     explotar(t.x, t.y);
     if (t.jugador) terminar("perdiste");
-    else if (juego.porSalir === 0 &&
-             juego.tanques.every((o) => o.equipo === 0 || !o.vivo)) terminar("ganaste");
+    else if (bandoGanador() === 0) terminar("ganaste");   // solo queda tu bando
   }
 }
 
@@ -779,23 +812,41 @@ function mirar(x, y, dir, salvo) {
   return { que: "nada", paso: ALCANCE };
 }
 
-/* Mete un enemigo nuevo en el mapa, lejos de ti y en terreno alcanzable. */
-/* En "por equipos" cada bando sale de una punta del mapa: el eje se sortea
-   al empezar, tú naces en el extremo bajo y los contrarios en el alto. */
-function lado(x, y) {
-  return juego.eje ? y / (mundo.alto - 1) : x / (mundo.ancho - 1);
+/* ── El rincón de cada bando ─────────────────────────────────────────
+   Los bandos se reparten en círculo alrededor del centro del mapa: con dos
+   quedan en puntas opuestas, con cinco en cinco esquinas. Una casilla es de
+   un bando si su ancla es la más cercana, así que las zonas se reparten el
+   mapa entero sin huecos ni solapes. */
+function anclaBando(k) {
+  const a = juego.anguloBase + (2 * Math.PI * k) / juego.bandos;
+  const r = Math.min(mundo.ancho, mundo.alto) * 0.36;
+  return { x: mundo.ancho / 2 + Math.cos(a) * r, y: mundo.alto / 2 + Math.sin(a) * r };
 }
-function miLado(x, y)  { return !ajustes.equipos || lado(x, y) < 0.38; }
-function suLado(x, y)  { return !ajustes.equipos || lado(x, y) > 0.62; }
 
-function soltarEnemigo(jx, jy) {
+function enSuZona(k, x, y) {
+  if (!ajustes.equipos) return true;          // uno contra todos: donde caiga
+  const mia = anclaBando(k);
+  const dMia = (mia.x - x) * (mia.x - x) + (mia.y - y) * (mia.y - y);
+  for (let o = 0; o < juego.bandos; o++) {
+    if (o === k) continue;
+    const a = anclaBando(o);
+    if ((a.x - x) * (a.x - x) + (a.y - y) * (a.y - y) <= dMia) return false;
+  }
+  return true;
+}
+
+/* Mete un tanque nuevo del bando que toque, en su zona y en terreno alcanzable. */
+function soltarTanque(equipo, jx, jy) {
   for (let intento = 0; intento < 3000; intento++) {
     const margen = intento < 2000 ? 16 : 8;
     const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
     if (!juego.alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
-    if (intento < 2500 && !suLado(x, y)) continue;    // su punta del mapa
-    if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
-    if (x === jx || y === jy) continue;
+    if (intento < 2500 && !enSuZona(equipo, x, y)) continue;    // su rincón
+    /* lejos de ti solo si viene a por ti; los tuyos pueden nacer al lado */
+    if (equipo !== 0) {
+      if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
+      if (x === jx || y === jy) continue;
+    }
     let apinado = false;
     for (const o of juego.tanques) {
       if (o.jugador || !o.vivo) continue;
@@ -803,12 +854,49 @@ function soltarEnemigo(jx, jy) {
     }
     if (apinado) continue;
 
-    const enemigo = nuevoTanque(x, y, false, 1);
-    juego.tanques.push(enemigo);
-    juego.ocupacion[y * mundo.ancho + x] = enemigo;
+    const nuevo = nuevoTanque(x, y, false, equipo);
+    juego.tanques.push(nuevo);
+    juego.ocupacion[y * mundo.ancho + x] = nuevo;
     return true;
   }
   return false;
+}
+
+/* ── Cuentas por bando ─────────────────────────────────────────────
+   Cuántos caben a la vez sobre el mapa: por equipos, unos pocos de cada
+   bando, para que ninguno se presente con todo el ejército de golpe; en
+   uno contra todos manda el tope de siempre. */
+function cupoEnCampo() { return ajustes.equipos ? 8 : 1; }
+function cupoTotal()   { return ajustes.equipos ? 40 : A_LA_VEZ; }
+
+function vivosDe(k) {
+  let n = 0;
+  for (const t of juego.tanques) if (t.vivo && t.equipo === k) n++;
+  return n;
+}
+function enCampo() {
+  let n = 0;
+  for (const t of juego.tanques) if (t.vivo && !t.jugador) n++;
+  return n;
+}
+
+/* El bando que ha ganado, o -1 si la cosa sigue. Gana el último que quede,
+   tenga los tanques que tenga. Un bando sigue en la partida si le queda
+   alguien en pie o alguien por salir; que a ti te falten tanques por entrar
+   no impide ganar, que era lo que dejaba la partida sin acabar nunca. */
+function bandoGanador() {
+  let uno = -1;
+  for (const t of juego.tanques) {
+    if (!t.vivo) continue;
+    if (uno === -1) uno = t.equipo;
+    else if (t.equipo !== uno) return -1;
+  }
+  for (let k = 0; k < juego.porSalir.length; k++) {
+    if (juego.porSalir[k] <= 0) continue;
+    if (uno === -1) uno = k;
+    else if (k !== uno) return -1;
+  }
+  return uno;
 }
 
 function pensarEnemigo(t, dt) {
@@ -831,7 +919,7 @@ function pensarEnemigo(t, dt) {
     if (mover(t, ["arriba","abajo","izquierda","derecha"][entero(4)])) { t.quieto = 0; return; }
   }
 
-  /* ¿Hay algún otro tanque cerca? Le dispara a quien sea, incluso a los suyos.
+  /* ¿Hay algún tanque contrario cerca? A los de su bando ni los mira.
      Si lleva muchos tiros contra el mismo sin tumbarlo, lo deja en paz un rato
      y se va a por el más cercano: así no se obsesiona con uno inalcanzable. */
   if (t.harto && juego.tiempo > t.hartoHasta) t.harto = null;
@@ -862,7 +950,10 @@ function pensarEnemigo(t, dt) {
   /* Si está alineado con alguien, le apunta. Nunca gasta tiros contra el borde. */
   for (const dir of Object.keys(DIRS)) {
     const vista = mirar(t.x, t.y, dir, t);
+    /* Antes bastaba con que fuera el jugador para dispararle. Por eso los de
+       tu propio bando te tiraban a ti: ahora tiene que ser de otro equipo. */
     if (vista.que === "tanque" && vista.paso <= VISTA_ENEMIGO &&
+        vista.tanque.equipo !== t.equipo &&
         (vista.tanque === t.objetivo || vista.tanque.jugador)) {
       t.dir = dir;
       if (disparar(t)) {
@@ -877,7 +968,7 @@ function pensarEnemigo(t, dt) {
       break;                          // sin munición: mejor moverse que quedarse plantado
     }
     /* un muro rompible delante del objetivo: vale la pena abrirlo a tiros */
-    if (vista.que === "muro" && cerca && vista.paso <= 3) {
+    if (vista.que === "muro" && cerca && cerca.equipo !== t.equipo && vista.paso <= 3) {
       const haciaObjetivo =
         (dir === "arriba"    && cerca.y < t.y && cerca.x === t.x) ||
         (dir === "abajo"     && cerca.y > t.y && cerca.x === t.x) ||
@@ -913,12 +1004,22 @@ function actualizar(dt) {
   juego.enemigosVivos = 0;
   for (const t of juego.tanques) if (t.equipo !== 0 && t.vivo) juego.enemigosVivos++;
 
-  /* van entrando de relevo conforme caen */
-  if (juego.porSalir > 0 && juego.enemigosVivos < A_LA_VEZ) {
+  /* Van entrando de relevo conforme caen. Se empieza por el bando que menos
+     tiene en pie, para que una goleada no se vuelva irremontable. */
+  if (juego.relevo !== undefined && enCampo() < cupoTotal()) {
     juego.relevo -= dt;
     if (juego.relevo <= 0) {
       juego.relevo = 1.2;
-      if (soltarEnemigo(juego.jugador.x, juego.jugador.y)) juego.porSalir--;
+      let elegido = -1, menos = Infinity;
+      for (let k = 0; k < juego.bandos; k++) {
+        if (juego.porSalir[k] <= 0) continue;
+        const v = vivosDe(k);
+        if (v >= cupoEnCampo()) continue;
+        if (v < menos) { menos = v; elegido = k; }
+      }
+      if (elegido >= 0 && soltarTanque(elegido, juego.jugador.x, juego.jugador.y)) {
+        juego.porSalir[elegido]--;
+      }
     }
   }
 
@@ -1149,9 +1250,9 @@ function dibujar() {
   for (const t of juego.tanques) {
     if (!t.vivo) continue;
     const nombre = "tanque_" + t.dir + "_" + (t.cuadro + 1);
-    /* verdes los de tu bando (tú incluido) y rojos los contrarios: en azul
-       se confundían con el terreno, que es del mismo color */
-    poner(t.equipo === 0 ? ATLAS.amigo : ATLAS.enemigo, nombre, aX(t.px), aY(t.py));
+    /* cada bando con su color: en azul se confundían con el terreno, que es
+       del mismo color */
+    poner(ATLAS.bandos[tintaDe(t)], nombre, aX(t.px), aY(t.py));
   }
 
   for (const c of juego.cohetes) {
@@ -1172,15 +1273,22 @@ const elMunicion = document.getElementById("municion");
 const elEnemigos = document.getElementById("enemigos");
 const elPoder = document.getElementById("poder");
 
+/* Todo el que no sea de tu bando, en pie o por salir. */
+function contrarios() {
+  let n = 0;
+  for (const t of juego.tanques) if (t.vivo && t.equipo !== 0) n++;
+  for (let k = 1; k < juego.porSalir.length; k++) n += juego.porSalir[k];
+  return n;
+}
+
 function pintarMarcador() {
   const j = juego.jugador;
   elVida.textContent = "♥".repeat(Math.max(0, j.vida)) + "·".repeat(VIDA_MAX - Math.max(0, j.vida));
   elMunicion.textContent = j.municion + "/" + municionMax(j);
-  elEnemigos.textContent = juego.tanques.filter((t) => t.equipo !== 0 && t.vivo).length + juego.porSalir;
+  elEnemigos.textContent = contrarios();
   if (ajustes.equipos) {
-    const amigos = juego.tanques.filter((t) => t.equipo === 0 && !t.jugador && t.vivo).length;
     elPoder.firstElementChild.textContent = "LOS TUYOS";
-    elPoder.lastElementChild.textContent = amigos;
+    elPoder.lastElementChild.textContent = vivosDe(0) - (juego.jugador.vivo ? 1 : 0) + juego.porSalir[0];
     elPoder.classList.add("visible");
   }
 
@@ -1226,13 +1334,15 @@ function mostrarCapa(titulo, texto, boton) {
 
 function terminar(resultado) {
   juego.estado = resultado;
+  window.__verReglas = true;
   if (resultado === "ganaste") {
-    window.__verReglas = true;
-    mostrarCapa("¡Ganaste!", "Acabaste con los " + ajustes.tanques + " tanques enemigos.", "Jugar otra vez");
+    const texto = ajustes.equipos
+      ? "El último bando en pie es el tuyo, los " + NOMBRE_BANDO[0] + "."
+      : "Acabaste con los " + ajustes.tanques + " tanques enemigos.";
+    mostrarCapa("¡Ganaste!", texto, "Jugar otra vez");
   } else {
-    const caidos = ajustes.tanques - juego.tanques.filter((t) => !t.jugador && t.vivo).length - juego.porSalir;
-    window.__verReglas = true;
-    mostrarCapa("Perdiste", "Tu tanque fue destruido. Te llevaste " + caidos + " por delante.", "Intentar otra vez");
+    mostrarCapa("Perdiste", "Tu tanque fue destruido. Quedaban " + contrarios() + " en contra.",
+                "Intentar otra vez");
   }
 }
 
@@ -1240,8 +1350,11 @@ function abrirMenu() {
   if (juego.estado !== "jugando") return;
   juego.estado = "menu";
   window.__enPantalla = true;
-  const quedan = juego.tanques.filter((t) => !t.jugador && t.vivo).length + juego.porSalir;
-  mostrarCapa("Pausa", "Quedan " + quedan + " de " + ajustes.tanques + " tanques enemigos.", "Seguir jugando");
+  const texto = ajustes.equipos
+    ? "Quedan " + contrarios() + " tanques en contra y " +
+      (vivosDe(0) - 1 + juego.porSalir[0]) + " de tu bando."
+    : "Quedan " + contrarios() + " de " + ajustes.tanques + " tanques enemigos.";
+  mostrarCapa("Pausa", texto, "Seguir jugando");
 }
 
 function botonCapa() {
@@ -1289,7 +1402,9 @@ function abrirAjustes() {
   capa.classList.remove("dentro");
   capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
   capaTitulo.textContent = "Ajustes";
-  capaTexto.textContent = "Cuántos tanques enemigos y si peleas solo o con gente de tu lado.";
+  capaTexto.textContent = ajustes.equipos
+    ? "Cuántos bandos pelean y cuántos tanques trae cada uno. El tuyo es el verde."
+    : "Cuántos tanques enemigos y si peleas solo o con gente de tu lado.";
   capaBoton.textContent = "Jugar";
   capaReglas.classList.remove("oculto");
   capaReglas.innerHTML = "";
@@ -1298,9 +1413,11 @@ function abrirAjustes() {
   caja.className = "ajustes";
   caja.style.cssText = "display:grid;gap:14px";
 
-  const fT = filaAjuste("Tanques enemigos");
-  fT.appendChild(contador(ajustes.tanques, 3, 200, 5, function (v) { ajustes.tanques = v; guardarAjustes(); }));
-  caja.appendChild(fT);
+  if (!ajustes.equipos) {
+    const fT = filaAjuste("Tanques enemigos");
+    fT.appendChild(contador(ajustes.tanques, 3, 200, 5, function (v) { ajustes.tanques = v; guardarAjustes(); }));
+    caja.appendChild(fT);
+  }
 
   const fM = filaAjuste("Partida");
   const op = document.createElement("div");
@@ -1320,9 +1437,29 @@ function abrirAjustes() {
   caja.appendChild(fM);
 
   if (ajustes.equipos) {
-    const fA = filaAjuste("Tanques de tu lado");
-    fA.appendChild(contador(ajustes.aliados, 1, 20, 1, function (v) { ajustes.aliados = v; guardarAjustes(); }));
-    caja.appendChild(fA);
+    const fB = filaAjuste("Cuántos bandos");
+    fB.appendChild(contador(ajustes.bandos, 2, MAX_EQUIPOS, 1, function (v) {
+      ajustes.bandos = v; guardarAjustes(); abrirAjustes();   // cambian los renglones
+    }));
+    caja.appendChild(fB);
+
+    /* un renglón por bando, con su color delante para no perderse */
+    for (let k = 0; k < ajustes.bandos; k++) {
+      const f = filaAjuste("");
+      const etiqueta = f.firstElementChild;
+      etiqueta.style.cssText = "display:flex;align-items:center;gap:9px";
+      const punto = document.createElement("i");
+      const c = TINTAS[k];
+      punto.style.cssText = "width:14px;height:14px;flex:none;background:rgb(" +
+                            c[0] + "," + c[1] + "," + c[2] + ")";
+      const nombre = document.createElement("span");
+      nombre.textContent = k === 0 ? NOMBRE_BANDO[0] + " (tú)" : NOMBRE_BANDO[k];
+      etiqueta.appendChild(punto); etiqueta.appendChild(nombre);
+      f.appendChild(contador(ajustes.porBando[k], 1, POR_EQUIPO_MAX, 1, function (v) {
+        ajustes.porBando[k] = v; guardarAjustes();
+      }));
+      caja.appendChild(f);
+    }
   }
 
   capaReglas.appendChild(caja);
@@ -1357,10 +1494,20 @@ function empezar(numeroEnemigos) {
   /* El jugador arranca lo más cerca posible del centro, pero en un hueco que
      ya exista: abrirlo a la fuerza mordía la montaña o el lago que hubiera
      ahí y dejaba las piezas del dibujo a medias. */
-  juego.eje = ajustes.equipos ? entero(2) : 0;
-  /* sin equipos sales del centro; con equipos, de tu punta */
-  const semX = !ajustes.equipos || juego.eje ? mundo.ancho >> 1 : Math.round(mundo.ancho * 0.14);
-  const semY = ajustes.equipos && juego.eje ? Math.round(mundo.alto * 0.14) : mundo.alto >> 1;
+  /* Cuántos bandos y cuántos trae cada uno. En "uno contra todos" cada tanque
+     enemigo es su propio bando, que es lo que hace que se peleen entre ellos. */
+  const sueltos = numeroEnemigos === undefined ? ajustes.tanques : numeroEnemigos;
+  juego.bandos = ajustes.equipos ? ajustes.bandos : 1 + sueltos;
+  juego.anguloBase = entero(360) * Math.PI / 180;
+  juego.porSalir = [];
+  for (let k = 0; k < juego.bandos; k++) {
+    juego.porSalir[k] = ajustes.equipos ? ajustes.porBando[k] : 1;
+  }
+  juego.porSalir[0]--;                 // tu plaza la ocupas tú
+
+  /* sin equipos sales del centro; con equipos, del rincón de tu bando */
+  const ancla = ajustes.equipos ? anclaBando(0) : { x: mundo.ancho / 2, y: mundo.alto / 2 };
+  const semX = Math.round(ancla.x), semY = Math.round(ancla.y);
   let jx = semX, jy = semY;
   busqueda:
   for (let r = 0; r < mundo.ancho; r++) {
@@ -1376,52 +1523,18 @@ function empezar(numeroEnemigos) {
   juego.tanques.push(juego.jugador);
   juego.ocupacion[jy * mundo.ancho + jx] = juego.jugador;
 
-  /* Por equipos: unos cuantos tanques pelean de tu lado. */
-  juego.aliados = ajustes.equipos ? ajustes.aliados : 0;
-  for (let i = 0; i < juego.aliados; i++) {
-    for (let intento = 0; intento < 2000; intento++) {
-      const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
-      if (!pasaTanque(x, y) || ocupada(x, y, null)) continue;
-      if (!miLado(x, y)) continue;                              // tu punta del mapa
-      if (Math.abs(x - jx) + Math.abs(y - jy) > 20) continue;   // y cerca de ti
-      const amigo = nuevoTanque(x, y, false, 0);
-      juego.tanques.push(amigo);
-      juego.ocupacion[y * mundo.ancho + x] = amigo;
-      break;
-    }
-  }
-
-  const total = numeroEnemigos === undefined ? ajustes.tanques : numeroEnemigos;
-  const cuantos = Math.min(total, A_LA_VEZ);
-  juego.porSalir = total - cuantos;
   juego.relevo = 1.2;
-  const alcanzable = alcanzablesDesde(jx, jy);
-  juego.alcanzable = alcanzable;
-  let puestos = 0, intentos = 0;
-  /* Con el mapa lleno puede no haber sitio lejano para todos, así que la
-     distancia mínima se va aflojando en vez de dejar enemigos sin salir. */
-  let margen = 14, separacion = 4;
-  while (puestos < cuantos && intentos++ < 40000) {
-    if (intentos % 8000 === 0) {
-      if (margen > 5) margen -= 3;
-      if (separacion > 2) separacion--;
+  juego.alcanzable = alcanzablesDesde(jx, jy);
+
+  /* Sale la primera tanda de cada bando, por turnos, para que ninguno
+     empiece con medio ejército ya puesto y otro con nadie. */
+  for (let vuelta = 0; vuelta < cupoEnCampo(); vuelta++) {
+    for (let k = 0; k < juego.bandos; k++) {
+      if (juego.porSalir[k] <= 0) continue;
+      if (vivosDe(k) >= cupoEnCampo()) continue;
+      if (enCampo() >= cupoTotal()) break;
+      if (soltarTanque(k, jx, jy)) juego.porSalir[k]--;
     }
-    const x = 1 + entero(mundo.ancho - 2), y = 1 + entero(mundo.alto - 2);
-    if (!alcanzable[y * mundo.ancho + x] || ocupada(x, y, null)) continue;
-    if (intentos < 32000 && !suLado(x, y)) continue;   // su punta del mapa
-    if (Math.abs(x - jx) + Math.abs(y - jy) < margen) continue;
-    if (x === jx || y === jy) continue;   // nunca en linea de tiro directa
-    /* ni pegados entre ellos: amontonados se destrozan nada más empezar */
-    let apinado = false;
-    for (const o of juego.tanques) {
-      if (o.jugador) continue;
-      if (Math.abs(o.x - x) + Math.abs(o.y - y) < separacion) { apinado = true; break; }
-    }
-    if (apinado) continue;
-    const enemigo = nuevoTanque(x, y, false, 1);
-    juego.tanques.push(enemigo);
-    juego.ocupacion[y * mundo.ancho + x] = enemigo;
-    puestos++;
   }
 
   juego.estado = "jugando";
