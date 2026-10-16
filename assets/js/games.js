@@ -63,6 +63,14 @@ window.STUMPFFIA = {
       pronto: false
     },
     {
+      id: "buscaminas",
+      nombre: "Buscaminas",
+      emoji: "🚩",
+      desc: "El de toda la vida, con mando: mueves la casilla y decides, banderín o pala.",
+      peso: "11 KB",
+      pronto: false
+    },
+    {
       id: "piedras-lirios",
       nombre: "Piedras y Lirios",
       emoji: "🪷",

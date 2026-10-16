@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Buscaminas — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
+<style>
+  #capa-reglas {
+    margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
+    display:grid; gap:5px; font-size:10px; text-align:left;
+  }
+  #capa-reglas.oculto { display:none; }
+  #capa-reglas > div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas > div > span { color:var(--apagado); }
+
+  /* Los dos botones del mando: banderín y pala. Llevan el mismo dibujo que
+     sale en el tablero, así que no hace falta explicar cuál es cuál. */
+  #mando .acciones { gap:8px; }
+  #mando .accion { width:78px; height:78px; }
+  #mando .accion > span { flex-direction:column; gap:3px; }
+  #mando .accion img { width:28px; height:28px; image-rendering:pixelated; }
+  #mando .accion i { font-style:normal; font-size:7px; letter-spacing:.04em; }
+  @media (max-width: 379px) {
+    #mando .accion { width:62px; height:62px; }
+    #mando .accion img { width:22px; height:22px; }
+    #mando .accion i { font-size:6px; }
+    .cruz { grid-template-columns:repeat(3,40px); grid-template-rows:repeat(3,40px); }
+  }
+
+  /* Los ajustes mandan sobre los estilos generales de la tarjeta. */
+  .modos { display:grid; gap:5px; width:100%; }
+  #capa-reglas > div.ajustes { display:grid; gap:12px; }
+  .ajustes .ajuste { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .capa .tarjeta .ajustes .modo {
+    width:100%; background:var(--carcasa); color:var(--claro);
+    min-height:0; margin:0; box-shadow:inset 0 0 0 2px var(--borde);
+    display:flex; align-items:flex-start; gap:8px; text-align:left; padding:8px 10px;
+  }
+  .capa .tarjeta .ajustes .modo[aria-pressed="true"] {
+    background:var(--tubo); box-shadow:inset 0 0 0 2px var(--claro);
+  }
+  .modo b { font-size:10px; color:var(--claro); white-space:nowrap; }
+  .modo i { font-style:normal; font-size:8px; color:var(--apagado); line-height:1.5; }
+  .modo-texto { display:flex; flex-direction:column; gap:2px; }
+  .marca { width:13px; height:13px; flex:none; margin-top:1px; box-shadow:inset 0 0 0 2px var(--borde); }
+  .modo[aria-pressed="true"] .marca { background:var(--claro); box-shadow:inset 0 0 0 2px var(--claro); }
+  .capa .tarjeta .ajustes .opciones button {
+    width:auto; background:var(--carcasa); color:var(--claro); min-height:0; margin:0;
+  }
+  .capa .tarjeta .ajustes .opciones button[aria-pressed="true"] {
+    background:var(--claro); color:var(--marino);
+  }
+  @media (min-width: 720px) {
+    .ajustes .ajuste { display:grid; grid-template-columns:150px 1fr; align-items:center; }
+    .ajustes .opciones { flex:1 1 auto; min-width:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
+    .capa .tarjeta .ajustes .opciones button { width:100%; padding:11px 6px; font-size:11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="consola">
+  <div class="lateral izq" aria-hidden="true"></div>
+  <div class="centro">
+    <div class="pantalla">
+      <canvas id="lienzo"></canvas>
+    </div>
+
+    <div class="datos" id="hud">
+      <div class="ficha"><span>MINAS</span><b id="minas">0</b></div>
+      <div class="ficha"><span>BANDERINES</span><b id="banderines">0</b></div>
+      <div class="ficha"><span>TIEMPO</span><b id="tiempo">0:00</b></div>
+      <div class="ficha"><span>RÉCORD</span><b id="record">—</b></div>
+    </div>
+
+    <div class="botonera">
+      <button id="btn-pausa">PAUSA</button>
+      <button id="btn-ajustes">AJUSTES</button>
+      <a href="/">SALIR</a>
+    </div>
+  </div>
+  <div class="lateral der" aria-hidden="true">
+    <div class="perilla"></div>
+    <div class="perilla"></div>
+    <div class="perilla"></div>
+    <div class="encendido">&#9211;</div>
+  </div>
+
+  <div class="mando" id="mando">
+    <div class="cruz">
+      <button data-dir="arriba"    style="--pos:1/2" aria-label="Arriba">▲</button>
+      <button data-dir="izquierda" style="--pos:2/1" aria-label="Izquierda">◀</button>
+      <button data-dir="derecha"   style="--pos:2/3" aria-label="Derecha">▶</button>
+      <button data-dir="abajo"     style="--pos:3/2" aria-label="Abajo">▼</button>
+    </div>
+    <div class="acciones">
+      <button class="accion" id="btn-bandera" aria-label="Poner banderín">
+        <span><img id="ico-bandera" alt=""><i>BANDERÍN</i></span>
+      </button>
+      <button class="accion" id="btn-pala" aria-label="Excavar">
+        <span><img id="ico-pala" alt=""><i>PALA</i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="capa" id="capa">
+  <div class="tarjeta">
+    <h1 id="capa-titulo">Buscaminas</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Jugar</button>
+    <div id="capa-reglas"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   BUSCAMINAS — Stumpffia
+   El de siempre, pero sin ratón: se mueve una casilla seleccionada y
+   se actúa con dos botones, banderín y pala.
+   Un solo archivo, sin librerías, sin peticiones de red.
+   ════════════════════════════════════════════════════════════════════ */
+
+const MARINO  = "#0B1A4A";
+const CLARO   = "#7EC8F2";
+const MEDIO   = "#2E53A6";
+const ROJO    = "#CF5A5A";
+const CHARCA  = "#102456";
+
+
+/* ───────────────── Sprites ─────────────────
+   Vienen de buscaminas.json, dibujados en 16x16: el 0 es azul marino,
+   el 1 azul claro y el punto es transparente. En la pala, además, el 0
+   que toca el borde se vuelve transparente (si no, sería un cuadrado). */
+
+/* DATOS-INICIO */
+/* Generado por empacar.mjs desde sprites/campo.json — no editar a mano. */
+const DIBUJOS = {
+  cerrado: [
+    "0000000000000000","0111111111111110","0111111111111100","0111111111111100",
+    "0111111111111100","0111111111111100","0111111111111100","0111111111111100",
+    "0111111111111100","0111111111111100","0111111111111100","0111111111111100",
+    "0111111111111100","0111111111111100","0100000000000000","0000000000000000"
+  ],
+  abierto: [
+    "1010101010101010","0000000000000000","1000000000000000","0000000000000000",
+    "1000000000000000","0000000000000000","1000000000000000","0000000000000000",
+    "1000000000000000","0000000000000000","1000000000000000","0000000000000000",
+    "1000000000000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_1: [
+    "1010101010101010","0000000000000000","1000000000000000","0000000110000000",
+    "1000001110000000","0000011110000000","1000000110000000","0000000110000000",
+    "1000000110000000","0000000110000000","1000000110000000","0000011111100000",
+    "1000011111100000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_2: [
+    "1010101010101010","0000000000000000","1000000000000000","0000001111000000",
+    "1000011111100000","0000011001100000","1000000001100000","0000000011000000",
+    "1000000110000000","0000001100000000","1000011000000000","0000011111100000",
+    "1000011111100000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_3: [
+    "1010101010101010","0000000000000000","1000000000000000","0000011111000000",
+    "1000011111100000","0000000001100000","1000000001100000","0000001111000000",
+    "1000001111000000","0000000001100000","1000000001100000","0000011111100000",
+    "1000011111000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_4: [
+    "1010101010101010","0000000000000000","1000000000000000","0000000011000000",
+    "1000000111000000","0000001111000000","1000011011000000","0000110011000000",
+    "1000111111100000","0000111111100000","1000000011000000","0000000011000000",
+    "1000000011000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_5: [
+    "1010101010101010","0000000000000000","1000000000000000","0000011111100000",
+    "1000011111100000","0000011000000000","1000011111000000","0000011111100000",
+    "1000000001100000","0000000001100000","1000011001100000","0000011111100000",
+    "1000001111000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_6: [
+    "1010101010101010","0000000000000000","1000000000000000","0000001111000000",
+    "1000011111000000","0000011000000000","1000011111000000","0000011111100000",
+    "1000011001100000","0000011001100000","1000011001100000","0000011111100000",
+    "1000001111000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_7: [
+    "1010101010101010","0000000000000000","1000000000000000","0000011111100000",
+    "1000011111100000","0000000001100000","1000000011000000","0000000011000000",
+    "1000000110000000","0000000110000000","1000001100000000","0000001100000000",
+    "1000001100000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  num_8: [
+    "1010101010101010","0000000000000000","1000000000000000","0000001111000000",
+    "1000011111100000","0000011001100000","1000011001100000","0000001111000000",
+    "1000011111100000","0000011001100000","1000011001100000","0000011111100000",
+    "1000001111000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  bandera: [
+    "0000000000000000","0111111111111110","0111111111111100","0111110001111100",
+    "0111000001111100","0110000001111100","0111000001111100","0111110001111100",
+    "0111111101111100","0111111101111100","0111110000011100","0111000000000100",
+    "0111111111111100","0111111111111100","0100000000000000","0000000000000000"
+  ],
+  mina: [
+    "1010101010101010","0000000000000000","1000000000000000","0000000110000000",
+    "1000100110010000","0000011111100000","1000110011110000","0011110111111100",
+    "1011111111111100","0000111111110000","1000011111100000","0000100110010000",
+    "1000000110000000","0000000000000000","1000000000000000","0000000000000000"
+  ],
+  pala: [
+    "0000000000001110","0000000000010001","0000000000010001","0000000000001110",
+    "0000000000011000","0000000000110000","0000000001100000","0000000011000000",
+    "0000111110000000","0001111110000000","0011111110000000","0011111100000000",
+    "0011111000000000","0011110000000000","0001000000000000","0000000000000000"
+  ],
+  seleccionado: [
+    "1111111111111111","1000000000000001","1011111111111101","1011111111111001",
+    "1011111111111001","1011111111111001","1011111111111001","1011111111111001",
+    "1011111111111001","1011111111111001","1011111111111001","1011111111111001",
+    "1011111111111001","1010000000000001","1000000000000001","1111111111111111"
+  ],
+  marco_cursor: [
+    "1111111111111111","1000000000000001","10............01","10............01",
+    "10............01","10............01","10............01","10............01",
+    "10............01","10............01","10............01","10............01",
+    "10............01","10............01","1000000000000001","1111111111111111"
+  ]
+};
+/* DATOS-FIN */
+
+const LADO = 16;
+const NOMBRES = Object.keys(DIBUJOS);
+const INDICE = {};
+NOMBRES.forEach(function (n, i) { INDICE[n] = i; });
+
+/* a cuáles se les vacía el 0 pegado al borde */
+const HUECO_AL_BORDE = { pala: true };
+
+/* 0 = oscuro, 1 = claro, 2 = transparente */
+const MASCARAS = {};
+function mascara(nombre) {
+  if (MASCARAS[nombre]) return MASCARAS[nombre];
+  const filas = DIBUJOS[nombre];
+  const m = new Uint8Array(LADO * LADO);
+  for (let y = 0; y < LADO; y++) {
+    for (let x = 0; x < LADO; x++) {
+      const ch = filas[y][x];
+      m[y * LADO + x] = ch === "." ? 2 : (ch === "1" ? 1 : 0);
+    }
+  }
+  if (HUECO_AL_BORDE[nombre]) {
+    const pila = [];
+    for (let i = 0; i < LADO; i++) {
+      pila.push(i, 0, i, LADO - 1, 0, i, LADO - 1, i);
+    }
+    while (pila.length) {
+      const y = pila.pop(), x = pila.pop();
+      if (x < 0 || y < 0 || x >= LADO || y >= LADO) continue;
+      const o = y * LADO + x;
+      if (m[o] !== 0) continue;
+      m[o] = 2;
+      pila.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+    }
+  }
+  MASCARAS[nombre] = m;
+  return m;
+}
+
+/* Una hoja con todos los sprites por pareja de colores, para no repintar
+   píxel por píxel en cada cuadro. */
+const HOJAS = {};
+function hoja(c0, c1) {
+  const clave = c0 + c1;
+  if (HOJAS[clave]) return HOJAS[clave];
+  const rgb = function (h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  };
+  const col = [rgb(c0), rgb(c1)];
+  const c = document.createElement("canvas");
+  c.width = LADO * NOMBRES.length; c.height = LADO;
+  const g = c.getContext("2d");
+  const img = g.createImageData(c.width, LADO);
+  NOMBRES.forEach(function (nombre, n) {
+    const m = mascara(nombre);
+    for (let y = 0; y < LADO; y++) {
+      for (let x = 0; x < LADO; x++) {
+        const v = m[y * LADO + x];
+        if (v === 2) continue;
+        const o = (y * c.width + n * LADO + x) * 4;
+        img.data[o] = col[v][0]; img.data[o + 1] = col[v][1]; img.data[o + 2] = col[v][2];
+        img.data[o + 3] = 255;
+      }
+    }
+  });
+  g.putImageData(img, 0, 0);
+  HOJAS[clave] = c;
+  return c;
+}
+
+/* Un sprite suelto, en su tamaño, para los iconos de los botones. */
+function iconoPNG(nombre, c0, c1) {
+  const c = document.createElement("canvas");
+  c.width = c.height = LADO;
+  const g = c.getContext("2d");
+  g.drawImage(hoja(c0, c1), INDICE[nombre] * LADO, 0, LADO, LADO, 0, 0, LADO, LADO);
+  return c.toDataURL("image/png");
+}
+
+
+/* ───────────────── Ajustes ───────────────── */
+
+const TAMANOS = [
+  { nombre: "9 × 9",   w: 9,  h: 9  },
+  { nombre: "12 × 12", w: 12, h: 12 },
+  { nombre: "16 × 16", w: 16, h: 16 },
+  { nombre: "20 × 14", w: 20, h: 14 },
+  { nombre: "24 × 16", w: 24, h: 16 },
+  { nombre: "30 × 20", w: 30, h: 20 }
+];
+
+const DENSIDADES = [
+  { nombre: "Pocas · 10%",  v: 0.10 },
+  { nombre: "Normal · 15%", v: 0.15 },
+  { nombre: "Muchas · 20%", v: 0.20 },
+  { nombre: "Brutal · 25%", v: 0.25 }
+];
+
+const MODOS = [
+  { id: "primerSeguro", nombre: "Primer paso seguro",
+    texto: "La primera palada nunca cae en una mina: abre un claro." },
+  { id: "cadena", nombre: "Destapar en cadena",
+    texto: "La pala sobre un número ya destapado abre sus vecinas, si los banderines cuadran." },
+  { id: "dudas", nombre: "Marcar dudas",
+    texto: "El banderín pasa por una interrogación antes de quitarse." },
+  { id: "sinReloj", nombre: "Sin reloj",
+    texto: "Sin prisas: el tiempo no corre, y tampoco se guardan récords." }
+];
+
+const ajustes = { tamano: 2, densidad: 1, activos: { primerSeguro: true, cadena: true } };
+
+function leerAjustes() {
+  try {
+    const g = JSON.parse(localStorage.getItem("stumpffia:buscaminas:ajustes") || "{}");
+    if (typeof g.tamano === "number") ajustes.tamano = Math.min(TAMANOS.length - 1, Math.max(0, g.tamano));
+    if (typeof g.densidad === "number") ajustes.densidad = Math.min(DENSIDADES.length - 1, Math.max(0, g.densidad));
+    if (g.activos) ajustes.activos = g.activos;
+  } catch (e) {}
+}
+function guardarAjustes() {
+  try { localStorage.setItem("stumpffia:buscaminas:ajustes", JSON.stringify(ajustes)); } catch (e) {}
+}
+const modoActivo = (id) => !!ajustes.activos[id];
+
+/* Cuántas minas salen con un campo y una densidad. Se dejan nueve casillas
+   libres: las que necesita el primer paso seguro. */
+function cuantasMinas(t, d) {
+  return Math.max(1, Math.min(t.w * t.h - 9, Math.round(t.w * t.h * DENSIDADES[d].v)));
+}
+
+/* El récord es por tablero: no es lo mismo un 9×9 que un 30×20. */
+function claveRecord() {
+  return "stumpffia:buscaminas:" + juego.ancho + "x" + juego.alto + "x" + juego.minas;
+}
+function leerRecord() {
+  try { return parseFloat(localStorage.getItem(claveRecord())) || 0; } catch (e) { return 0; }
+}
+function guardarRecord(v) {
+  try { localStorage.setItem(claveRecord(), String(v)); } catch (e) {}
+}
+
+
+/* ───────────────── Estado ───────────────── */
+
+const juego = {
+  estado: "menu",      // menu | ajustes | jugando | pausa | fin
+  ancho: 0, alto: 0, minas: 0,
+  mina: null,          // 1 si hay mina
+  abierto: null,
+  marca: null,         // 0 nada, 1 banderín, 2 duda
+  vecinas: null,
+  cx: 0, cy: 0,        // la casilla seleccionada
+  sembrado: false,
+  tiempo: 0,
+  abiertas: 0,
+  banderas: 0,
+  reventada: -1,       // la mina que te mató
+  ganado: false,
+  espera: false        // el momento de ver el campo antes de la tarjeta
+};
+
+/* Al acabar, la tarjeta tarda un momento en salir: da tiempo a mirar dónde
+   estaban las minas, que para eso se destapan. */
+function terminar(titulo, texto, boton, filas) {
+  juego.espera = true;
+  setTimeout(function () {
+    juego.espera = false;
+    mostrarCapa(titulo, texto, boton, filas);
+  }, 1300);
+}
+
+const dentro = (x, y) => x >= 0 && y >= 0 && x < juego.ancho && y < juego.alto;
+const idx = (x, y) => y * juego.ancho + x;
+
+function alrededor(x, y, hacer) {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nx = x + dx, ny = y + dy;
+      if (dentro(nx, ny)) hacer(nx, ny, idx(nx, ny));
+    }
+  }
+}
+
+function empezar() {
+  const t = TAMANOS[ajustes.tamano];
+  juego.ancho = t.w; juego.alto = t.h;
+  const total = t.w * t.h;
+  juego.minas = cuantasMinas(t, ajustes.densidad);
+
+  juego.mina = new Uint8Array(total);
+  juego.abierto = new Uint8Array(total);
+  juego.marca = new Uint8Array(total);
+  juego.vecinas = new Uint8Array(total);
+  juego.cx = Math.floor(t.w / 2); juego.cy = Math.floor(t.h / 2);
+  juego.sembrado = false;
+  juego.tiempo = 0;
+  juego.abiertas = 0;
+  juego.banderas = 0;
+  juego.reventada = -1;
+  juego.ganado = false;
+  juego.espera = false;
+  juego.estado = "jugando";
+
+  capa.classList.remove("visible");
+  ajustar();
+  pintarRecord();
+}
+
+/* Las minas se siembran con la primera palada, nunca antes: así la primera
+   no es una trampa de mala suerte. */
+function sembrar(sx, sy) {
+  const total = juego.ancho * juego.alto;
+  const prohibido = new Uint8Array(total);
+  prohibido[idx(sx, sy)] = 1;
+  if (modoActivo("primerSeguro")) alrededor(sx, sy, function (x, y, o) { prohibido[o] = 1; });
+
+  const libres = [];
+  for (let o = 0; o < total; o++) if (!prohibido[o]) libres.push(o);
+  const cuantas = Math.min(juego.minas, libres.length);
+  for (let i = 0; i < cuantas; i++) {
+    const j = i + Math.floor(Math.random() * (libres.length - i));
+    const t = libres[i]; libres[i] = libres[j]; libres[j] = t;
+    juego.mina[libres[i]] = 1;
+  }
+  juego.minas = cuantas;
+
+  for (let y = 0; y < juego.alto; y++) {
+    for (let x = 0; x < juego.ancho; x++) {
+      let n = 0;
+      alrededor(x, y, function (nx, ny, o) { if (juego.mina[o]) n++; });
+      juego.vecinas[idx(x, y)] = n;
+    }
+  }
+  juego.sembrado = true;
+  pintarRecord();
+}
+
+
+/* ───────────────── Excavar y marcar ───────────────── */
+
+/* Destapa de golpe todo el claro: si una casilla no tiene minas al lado,
+   sus vecinas también se abren, y así en cadena. */
+function abrirClaro(x, y) {
+  const pila = [x, y];
+  while (pila.length) {
+    const cy = pila.pop(), cx = pila.pop();
+    const o = idx(cx, cy);
+    if (juego.abierto[o] || juego.marca[o] === 1) continue;
+    juego.abierto[o] = 1;
+    juego.marca[o] = 0;
+    juego.abiertas++;
+    if (juego.vecinas[o] === 0) {
+      alrededor(cx, cy, function (nx, ny, no) {
+        if (!juego.abierto[no] && juego.marca[no] !== 1) pila.push(nx, ny);
+      });
+    }
+  }
+}
+
+function excavar() {
+  if (juego.estado !== "jugando") return;
+  const x = juego.cx, y = juego.cy, o = idx(x, y);
+
+  if (!juego.sembrado) {
+    sembrar(x, y);
+    if (juego.mina[o]) { perder(o); return; }   /* solo si no hubo paso seguro */
+    abrirClaro(x, y);
+    revisar();
+    return;
+  }
+
+  /* sobre un número ya destapado, la pala abre alrededor */
+  if (juego.abierto[o]) {
+    if (!modoActivo("cadena") || juego.vecinas[o] === 0) return;
+    let banderas = 0;
+    alrededor(x, y, function (nx, ny, no) { if (juego.marca[no] === 1) banderas++; });
+    if (banderas !== juego.vecinas[o]) return;
+    const pendientes = [];
+    alrededor(x, y, function (nx, ny, no) {
+      if (!juego.abierto[no] && juego.marca[no] !== 1) pendientes.push(nx, ny, no);
+    });
+    for (let i = 0; i < pendientes.length; i += 3) {
+      if (juego.mina[pendientes[i + 2]]) { perder(pendientes[i + 2]); return; }
+    }
+    for (let i = 0; i < pendientes.length; i += 3) abrirClaro(pendientes[i], pendientes[i + 1]);
+    revisar();
+    return;
+  }
+
+  if (juego.marca[o] === 1) return;          /* con banderín no se excava */
+  if (juego.mina[o]) { perder(o); return; }
+  abrirClaro(x, y);
+  revisar();
+}
+
+function marcar() {
+  if (juego.estado !== "jugando") return;
+  const o = idx(juego.cx, juego.cy);
+  if (juego.abierto[o]) return;
+  const antes = juego.marca[o];
+  if (antes === 1) juego.marca[o] = modoActivo("dudas") ? 2 : 0;
+  else if (antes === 2) juego.marca[o] = 0;
+  else juego.marca[o] = 1;
+  juego.banderas += (juego.marca[o] === 1 ? 1 : 0) - (antes === 1 ? 1 : 0);
+}
+
+function revisar() {
+  if (juego.abiertas < juego.ancho * juego.alto - juego.minas) return;
+  juego.estado = "fin";
+  juego.ganado = true;
+  /* al ganar, las minas que quedaban se marcan solas */
+  for (let o = 0; o < juego.mina.length; o++) if (juego.mina[o]) juego.marca[o] = 1;
+  juego.banderas = juego.minas;
+
+  const filas = [["Campo", juego.ancho + " × " + juego.alto],
+                 ["Minas", String(juego.minas)]];
+  let texto = "Campo limpio. No quedó una sola mina sin encontrar.";
+  if (!modoActivo("sinReloj")) {
+    const previo = leerRecord();
+    const t = Math.round(juego.tiempo * 10) / 10;
+    filas.push(["Tu tiempo", reloj(juego.tiempo)]);
+    if (!previo || t < previo) {
+      guardarRecord(t);
+      texto = "Campo limpio, y encima récord en este tablero.";
+    } else {
+      filas.push(["Récord", reloj(previo)]);
+    }
+    pintarRecord();
+  }
+  terminar("¡Ganaste!", texto, "Otra vez", filas);
+}
+
+function perder(o) {
+  juego.estado = "fin";
+  juego.reventada = o;
+  for (let i = 0; i < juego.mina.length; i++) if (juego.mina[i]) juego.abierto[i] = 1;
+  terminar("Boom",
+    "Esa tenía mina. Las demás estaban donde se acaban de destapar.",
+    "Otra vez",
+    [["Destapadas", juego.abiertas + " de " + (juego.ancho * juego.alto - juego.minas)],
+     ["Banderines", juego.banderas + " de " + juego.minas]]);
+}
+
+
+/* ───────────────── Dibujo ───────────────── */
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d", { alpha: false });
+let celda = 10, ox = 0, oy = 0;
+
+function ajustar() {
+  const w = lienzo.clientWidth || 320, h = lienzo.clientHeight || 240;
+  lienzo.width = w; lienzo.height = h;
+  ctx.imageSmoothingEnabled = false;
+  if (!juego.ancho) return;
+  celda = Math.max(3, Math.floor(Math.min(w / juego.ancho, h / juego.alto)));
+  ox = Math.floor((w - juego.ancho * celda) / 2);
+  oy = Math.floor((h - juego.alto * celda) / 2);
+}
+window.addEventListener("resize", ajustar);
+if (window.ResizeObserver) new ResizeObserver(ajustar).observe(lienzo);
+
+function sprite(nombre, x, y, c0, c1) {
+  ctx.drawImage(hoja(c0 || MARINO, c1 || CLARO), INDICE[nombre] * LADO, 0, LADO, LADO,
+                ox + x * celda, oy + y * celda, celda, celda);
+}
+
+/* Por debajo de 8 px un dibujo de 16×16 se vuelve ruido: ahí se pintan
+   cuadros lisos, que al menos se distinguen. */
+function cuadro(x, y, color, margen) {
+  ctx.fillStyle = color;
+  ctx.fillRect(ox + x * celda + margen, oy + y * celda + margen,
+               celda - margen * 2, celda - margen * 2);
+}
+
+function pintarCasilla(x, y) {
+  const o = idx(x, y);
+  const chico = celda < 8;
+
+  if (!juego.abierto[o]) {
+    if (juego.marca[o] === 1) {
+      if (chico) { cuadro(x, y, CLARO, 1); cuadro(x, y, ROJO, Math.max(2, Math.floor(celda / 3))); }
+      else sprite("bandera", x, y);
+      return;
+    }
+    const seleccionada = (x === juego.cx && y === juego.cy && juego.estado === "jugando");
+    if (chico) cuadro(x, y, CLARO, 1);
+    else sprite(seleccionada ? "seleccionado" : "cerrado", x, y);
+    if (juego.marca[o] === 2 && !chico) {
+      ctx.fillStyle = MARINO;
+      ctx.font = Math.floor(celda * 0.62) + "px Silkscreen, ui-monospace, monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("?", ox + x * celda + celda / 2, oy + y * celda + celda / 2 + 1);
+    }
+    return;
+  }
+
+  if (juego.mina[o]) {
+    const reventada = (o === juego.reventada);
+    if (chico) { cuadro(x, y, reventada ? ROJO : MEDIO, 0); return; }
+    sprite("mina", x, y, reventada ? ROJO : MARINO, reventada ? MARINO : CLARO);
+    return;
+  }
+
+  const n = juego.vecinas[o];
+  if (chico) {
+    cuadro(x, y, CHARCA, 0);
+    if (n) {
+      ctx.fillStyle = CLARO;
+      ctx.fillRect(ox + x * celda + 1, oy + y * celda + celda - 2, Math.min(celda - 2, n), 1);
+    }
+    return;
+  }
+  sprite(n ? "num_" + n : "abierto", x, y);
+}
+
+function dibujar() {
+  ctx.fillStyle = MARINO;
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+  if (!juego.ancho || !juego.mina) {
+    /* antes de la primera partida se enseña el campo cerrado, nada más */
+    ctx.fillStyle = CHARCA;
+    ctx.fillRect(ox, oy, juego.ancho * celda, juego.alto * celda);
+    return;
+  }
+
+  ctx.fillStyle = CHARCA;
+  ctx.fillRect(ox, oy, juego.ancho * celda, juego.alto * celda);
+
+  for (let y = 0; y < juego.alto; y++) {
+    for (let x = 0; x < juego.ancho; x++) pintarCasilla(x, y);
+  }
+
+  /* el marco de la casilla seleccionada va encima de todo: así se ve igual
+     sobre una cerrada, una abierta o un banderín */
+  if (juego.estado === "jugando") {
+    if (celda < 8) {
+      ctx.strokeStyle = CLARO; ctx.lineWidth = 1;
+      ctx.strokeRect(ox + juego.cx * celda + 0.5, oy + juego.cy * celda + 0.5, celda - 1, celda - 1);
+    } else {
+      sprite("marco_cursor", juego.cx, juego.cy);
+    }
+  }
+
+  /* la orilla del campo */
+  const grosor = Math.max(2, Math.floor(celda / 6));
+  ctx.strokeStyle = CLARO;
+  ctx.lineWidth = grosor;
+  ctx.strokeRect(ox - grosor / 2, oy - grosor / 2,
+                 juego.ancho * celda + grosor, juego.alto * celda + grosor);
+}
+
+
+/* ───────────────── La tira de datos ───────────────── */
+
+const elMinas = document.getElementById("minas");
+const elBanderines = document.getElementById("banderines");
+const elTiempo = document.getElementById("tiempo");
+const elRecord = document.getElementById("record");
+const fichaTiempo = elTiempo.parentElement;
+
+function reloj(s) {
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return m + ":" + (r < 10 ? "0" : "") + r;
+}
+
+function pintarRecord() {
+  if (modoActivo("sinReloj")) { elRecord.textContent = "—"; return; }
+  const r = juego.ancho ? leerRecord() : 0;
+  elRecord.textContent = r ? reloj(r) : "—";
+}
+
+function pintarMarcador() {
+  elMinas.textContent = String(juego.minas - juego.banderas);
+  elBanderines.textContent = juego.banderas + "/" + juego.minas;
+  elTiempo.textContent = modoActivo("sinReloj") ? "—" : reloj(juego.tiempo);
+  fichaTiempo.classList.toggle("urgente", juego.estado === "fin" && juego.ganado);
+}
+
+
+/* ───────────────── Las pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+const capaReglas = document.getElementById("capa-reglas");
+
+function mostrarCapa(titulo, texto, boton, filas) {
+  /* La capa vive fuera de la carcasa, porque el recorte de las esquinas
+     recortaba también lo que tuviera dentro. Para la pausa se encaja a mano
+     encima del tubo. */
+  const adentro = !!window.__enPantalla;
+  window.__enPantalla = false;
+  capa.classList.toggle("dentro", adentro);
+  if (adentro) {
+    const p = document.querySelector(".pantalla").getBoundingClientRect();
+    capa.style.left = p.left + 4 + "px"; capa.style.top = p.top + 4 + "px";
+    capa.style.width = p.width - 8 + "px"; capa.style.height = p.height - 8 + "px";
+  } else {
+    capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  }
+  capaReglas.classList.toggle("oculto", !filas || !filas.length);
+
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capaBoton.hidden = false;
+  capaReglas.innerHTML = "";
+  for (const fila of filas || []) {
+    const d = document.createElement("div");
+    const s = document.createElement("span"); s.textContent = fila[0];
+    const b = document.createElement("b"); b.textContent = fila[1];
+    d.appendChild(s); d.appendChild(b);
+    capaReglas.appendChild(d);
+  }
+  capa.classList.add("visible");
+}
+
+function abrirAjustes() {
+  juego.estado = "ajustes";
+  capa.classList.remove("dentro");
+  capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  capaTitulo.textContent = "Ajustes";
+  capaTexto.textContent = "El tamaño del campo, cuántas minas lleva y los modos.";
+  capaBoton.textContent = "Jugar";
+  capaBoton.hidden = false;
+  capaReglas.classList.remove("oculto");
+  capaReglas.innerHTML = "";
+
+  const caja = document.createElement("div");
+  caja.className = "ajustes";
+
+  /* Ancho y columnas puestos a mano: en la hoja se los comía la especificidad. */
+  const grupo = function (etiqueta, lista, elegido, alElegir, columnas) {
+    const f = document.createElement("div");
+    f.className = "ajuste";
+    f.style.cssText = "display:flex;align-items:center;gap:12px";
+    const e = document.createElement("span"); e.textContent = etiqueta;
+    const o = document.createElement("div"); o.className = "opciones";
+    o.style.cssText = "flex:1;display:grid;width:100%;gap:8px;" +
+      "grid-template-columns:repeat(" + columnas + ",1fr)";
+    lista.forEach(function (it, i) {
+      const b = document.createElement("button");
+      b.textContent = it.nombre;
+      b.setAttribute("aria-pressed", String(i === elegido));
+      b.addEventListener("click", function () { alElegir(i); guardarAjustes(); abrirAjustes(); });
+      o.appendChild(b);
+    });
+    f.appendChild(e); f.appendChild(o);
+    return f;
+  };
+
+  const anchas = innerWidth >= 720;
+  caja.appendChild(grupo("Campo", TAMANOS, ajustes.tamano,
+    function (i) { ajustes.tamano = i; }, anchas ? 3 : 2));
+  caja.appendChild(grupo("Minas", DENSIDADES, ajustes.densidad,
+    function (i) { ajustes.densidad = i; }, anchas ? 4 : 2));
+
+  /* cuántas minas salen con lo elegido, para no jugar a ciegas */
+  const t = TAMANOS[ajustes.tamano];
+  const cuenta = document.createElement("div");
+  cuenta.className = "ajuste";
+  const ce = document.createElement("span"); ce.textContent = "Te tocan";
+  const cb = document.createElement("b");
+  cb.style.cssText = "font-size:12px";
+  cb.textContent = cuantasMinas(t, ajustes.densidad) + " minas en " + (t.w * t.h) + " casillas";
+  cuenta.appendChild(ce); cuenta.appendChild(cb);
+  caja.appendChild(cuenta);
+
+  const lista = document.createElement("div");
+  lista.className = "modos";
+  for (const m of MODOS) {
+    const b = document.createElement("button");
+    b.className = "modo";
+    b.setAttribute("aria-pressed", String(modoActivo(m.id)));
+    const marca = document.createElement("span"); marca.className = "marca";
+    const texto = document.createElement("span"); texto.className = "modo-texto";
+    const nombre = document.createElement("b"); nombre.textContent = m.nombre;
+    const detalle = document.createElement("i"); detalle.textContent = m.texto;
+    texto.appendChild(nombre); texto.appendChild(detalle);
+    b.appendChild(marca); b.appendChild(texto);
+    b.addEventListener("click", function () {
+      ajustes.activos[m.id] = !modoActivo(m.id);
+      guardarAjustes();
+      b.setAttribute("aria-pressed", String(modoActivo(m.id)));
+      pintarRecord();
+    });
+    lista.appendChild(b);
+  }
+  caja.appendChild(lista);
+
+  capaReglas.appendChild(caja);
+  capa.classList.add("visible");
+}
+
+function botonCapa() {
+  if (juego.espera) return;
+  if (juego.estado === "pausa") { juego.estado = "jugando"; capa.classList.remove("visible"); }
+  else empezar();
+}
+
+function pausar() {
+  if (juego.estado === "jugando") {
+    juego.estado = "pausa";
+    window.__enPantalla = true;
+    mostrarCapa("Pausa", "", "Seguir", null);
+  } else botonCapa();
+}
+
+capaBoton.addEventListener("click", botonCapa);
+document.getElementById("btn-ajustes").addEventListener("click", abrirAjustes);
+document.getElementById("btn-pausa").addEventListener("click", pausar);
+
+
+/* ───────────────── Controles ─────────────────
+   Una sola casilla seleccionada, que se mueve con la cruz en el celular y
+   con WASD o las flechas en el televisor. Dos acciones: banderín y pala;
+   en el teclado, la O y la P. */
+
+const DIRS = {
+  arriba:    { dx:  0, dy: -1 },
+  abajo:     { dx:  0, dy:  1 },
+  izquierda: { dx: -1, dy:  0 },
+  derecha:   { dx:  1, dy:  0 }
+};
+
+function mover(dir) {
+  if (juego.estado !== "jugando") return;
+  const d = DIRS[dir];
+  if (!d) return;
+  /* el campo no da la vuelta: topas con la orilla y ahí te quedas */
+  juego.cx = Math.min(juego.ancho - 1, Math.max(0, juego.cx + d.dx));
+  juego.cy = Math.min(juego.alto - 1, Math.max(0, juego.cy + d.dy));
+}
+
+const TECLAS = {
+  KeyW: "arriba",     ArrowUp: "arriba",
+  KeyS: "abajo",      ArrowDown: "abajo",
+  KeyA: "izquierda",  ArrowLeft: "izquierda",
+  KeyD: "derecha",    ArrowRight: "derecha"
+};
+
+addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); pausar(); return; }
+  if (TECLAS[e.code]) { e.preventDefault(); mover(TECLAS[e.code]); return; }
+  if (e.repeat) return;
+  if (e.code === "KeyO") { e.preventDefault(); marcar(); }
+  else if (e.code === "KeyP") { e.preventDefault(); excavar(); }
+});
+
+/* La cruz, con repetición al dejar el dedo puesto: en un 30×20, ir casilla
+   por casilla a toques sería una penitencia. */
+function aguantar(boton, hacer) {
+  let espera = 0, repite = 0;
+  const suelta = function () { clearTimeout(espera); clearInterval(repite); };
+  boton.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (boton.setPointerCapture && e.pointerId !== undefined) {
+      try { boton.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    hacer();
+    suelta();
+    espera = setTimeout(function () { repite = setInterval(hacer, 85); }, 320);
+  });
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) {
+    boton.addEventListener(ev, suelta);
+  }
+  addEventListener("blur", suelta);
+}
+
+for (const boton of document.querySelectorAll("#mando [data-dir]")) {
+  const dir = boton.dataset.dir;
+  aguantar(boton, function () { mover(dir); });
+}
+
+document.getElementById("btn-bandera")
+  .addEventListener("pointerdown", function (e) { e.preventDefault(); marcar(); });
+document.getElementById("btn-pala")
+  .addEventListener("pointerdown", function (e) { e.preventDefault(); excavar(); });
+document.getElementById("ico-bandera").src = iconoPNG("bandera", MARINO, CLARO);
+document.getElementById("ico-pala").src = iconoPNG("pala", MARINO, CLARO);
+
+/* De propina, el ratón: tocar una casilla la selecciona y, con ratón, además
+   excava; el botón derecho pone banderín. Con el dedo solo selecciona, que
+   para actuar ya están los dos botones. */
+function casillaDe(e) {
+  if (!juego.ancho) return null;
+  const r = lienzo.getBoundingClientRect();
+  const x = Math.floor(((e.clientX - r.left) * (lienzo.width / r.width) - ox) / celda);
+  const y = Math.floor(((e.clientY - r.top) * (lienzo.height / r.height) - oy) / celda);
+  return dentro(x, y) ? { x: x, y: y } : null;
+}
+
+lienzo.addEventListener("pointerdown", function (e) {
+  if (juego.estado !== "jugando") return;
+  const c = casillaDe(e);
+  if (!c) return;
+  e.preventDefault();
+  juego.cx = c.x; juego.cy = c.y;
+  if (e.pointerType === "mouse") {
+    if (e.button === 2) marcar();
+    else if (e.button === 0) excavar();
+  }
+});
+lienzo.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+
+/* ───────────────── Marcha ───────────────── */
+
+let ultimo = 0;
+function marco(ahora) {
+  requestAnimationFrame(marco);
+  const dt = Math.min(0.05, (ahora - ultimo) / 1000 || 0);
+  ultimo = ahora;
+  if (juego.estado === "jugando" && juego.sembrado && !modoActivo("sinReloj")) juego.tiempo += dt;
+  dibujar();
+  pintarMarcador();
+}
+
+window.BUSCAMINAS = { juego, ajustes, empezar, sembrar, excavar, marcar, mover, dibujar,
+                      abrirAjustes, modoActivo, cuantasMinas, TAMANOS, DENSIDADES, MODOS };
+
+leerAjustes();
+const inicial = TAMANOS[ajustes.tamano];
+juego.ancho = inicial.w; juego.alto = inicial.h;
+juego.minas = cuantasMinas(inicial, ajustes.densidad);
+ajustar();
+pintarRecord();
+mostrarCapa("Buscaminas",
+  "Destapa el campo entero sin pisar una mina. Cada número dice cuántas minas tiene pegadas esa casilla.",
+  "Jugar",
+  [["Mover la casilla", "W A S D o flechas"],
+   ["Banderín", "tecla O"],
+   ["Excavar", "tecla P"],
+   ["En celular", "la cruz y los dos botones"],
+   ["Pausa", "Espacio"],
+   ["Campo y modos", "botón AJUSTES"]]);
+requestAnimationFrame(marco);
+</script>
+</body>
+</html>
