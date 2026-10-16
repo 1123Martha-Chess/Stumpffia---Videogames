@@ -114,9 +114,9 @@ window.STUMPFFIA = {
       id: "carrera-charcos",
       nombre: "Carrera de Charcos",
       emoji: "🏁",
-      desc: "Dos jugadores en el mismo teléfono. El primero en llegar gana.",
-      peso: "17 KB",
-      pronto: true
+      desc: "Dos pantallas: arriba la carrera pegada al asfalto, abajo el mapa con todos los coches.",
+      peso: "14 KB",
+      pronto: false
     }
   ]
 };

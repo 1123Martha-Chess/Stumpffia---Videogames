@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Carrera de Charcos — Stumpffia</title>
+<meta name="theme-color" content="#0B1A4A">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/assets/img/icon-192.png" type="image/png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/assets/css/pixel.css">
+<link rel="stylesheet" href="/assets/css/consola.css">
+<style>
+  /* Dos pantallas, como la consolita de dos tapas: arriba la carrera, abajo
+     el mapa. En el celular van una encima de otra; en el televisor, lado a
+     lado, que es donde sobra el ancho. */
+  .pantallas { flex:1; min-height:0; display:flex; flex-direction:column; gap:9px; }
+  .pantallas .arriba { flex:3 1 0; }
+  .pantallas .abajo  { flex:2 1 0; }
+  .pantalla canvas { width:100%; height:100%; object-fit:contain; }
+  @media (min-width: 820px) and (min-height: 540px) {
+    .pantallas { flex-direction:row; }
+    .pantallas .arriba { flex:1.55 1 0; }
+    .pantallas .abajo  { flex:1 1 0; }
+  }
+  /* Pantallas muy bajitas: el mapa cede sitio antes que la carrera, pero sin
+     pasarse, que por debajo de medio tamaño los cochecitos se deshacen. */
+  @media (max-height: 620px) and (max-width: 819px) {
+    .pantallas .abajo { flex:1.4 1 0; }
+  }
+
+  /* El 3, 2, 1 y los avisos de vuelta. Van sobre el tubo de arriba. */
+  #aviso {
+    position:absolute; inset:4px; z-index:4; display:none;
+    align-items:center; justify-content:center; pointer-events:none;
+    text-align:center; line-height:1.3;
+    font-size:clamp(18px,6vh,40px); color:var(--claro);
+    text-shadow:3px 3px 0 var(--marino), -3px -3px 0 var(--marino),
+                3px -3px 0 var(--marino), -3px 3px 0 var(--marino);
+  }
+  #aviso.visible { display:flex; }
+
+  /* las filas de abajo de la tarjeta: controles antes de correr, puestos al final */
+  #capa-reglas {
+    margin:0; padding:8px 0 0; border-top:2px solid var(--borde);
+    display:grid; gap:5px; font-size:10px; text-align:left;
+  }
+  #capa-reglas.oculto { display:none; }
+  #capa-reglas > div { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  #capa-reglas > div > span { color:var(--apagado); }
+
+  /* la tabla de puestos de la pantalla final */
+  #capa-reglas.tabla > div { font-size:11px; }
+  #capa-reglas.tabla > div.tuyo b, #capa-reglas.tabla > div.tuyo span { color:var(--claro); }
+
+  /* Los ajustes mandan sobre los estilos generales de la tarjeta. La columna
+     se fija a 1fr porque si no, la rejilla se encoge al ancho de las palabras
+     y las opciones acaban en una tira angosta. */
+  #capa-reglas > div.ajustes { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+  .ajustes .ajuste { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .ajustes .opciones { flex:1 1 auto; min-width:0; }
+  .capa .tarjeta .ajustes .opciones button,
+  .capa .tarjeta .ajustes .contador button {
+    width:auto; background:var(--carcasa); color:var(--claro); min-height:0; margin:0;
+    box-shadow:inset 0 0 0 2px var(--borde);
+  }
+  .capa .tarjeta .ajustes .opciones button[aria-pressed="true"] {
+    background:var(--claro); color:var(--marino); box-shadow:inset 0 0 0 2px var(--claro);
+  }
+  .capa .tarjeta .ajustes .contador button { width:32px; height:32px; }
+  @media (min-width: 720px) {
+    .ajustes .ajuste { display:grid; grid-template-columns:150px minmax(0,1fr); align-items:center; }
+    .ajustes .opciones { display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
+    .capa .tarjeta .ajustes .opciones button { width:100%; padding:11px 6px; font-size:11px; }
+    .ajustes .contador { justify-content:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="consola">
+  <div class="lateral izq" aria-hidden="true"></div>
+  <div class="centro">
+    <div class="pantallas">
+      <div class="pantalla arriba">
+        <canvas id="carrera" width="256" height="192" aria-label="La carrera"></canvas>
+        <div id="aviso"></div>
+      </div>
+      <div class="pantalla abajo">
+        <canvas id="mapa" width="256" height="192" aria-label="El mapa de la pista"></canvas>
+      </div>
+    </div>
+
+    <div class="datos" id="hud">
+      <div class="ficha"><span>VUELTA</span><b id="dato-vuelta">1/3</b></div>
+      <div class="ficha"><span>PUESTO</span><b id="dato-puesto">6/6</b></div>
+      <div class="ficha"><span>TIEMPO</span><b id="dato-tiempo">0:00.0</b></div>
+      <div class="ficha"><span>MEJOR</span><b id="dato-mejor">—</b></div>
+      <div class="ficha"><span>VEL</span><b id="dato-vel">0</b></div>
+    </div>
+
+    <div class="botonera">
+      <button id="btn-pausa">PAUSA</button>
+      <button id="btn-ajustes">AJUSTES</button>
+      <a href="/">SALIR</a>
+    </div>
+  </div>
+  <div class="lateral der" aria-hidden="true">
+    <div class="perilla"></div>
+    <div class="perilla"></div>
+    <div class="perilla"></div>
+    <div class="encendido">&#9211;</div>
+  </div>
+
+  <div class="mando" id="mando">
+    <div class="cruz">
+      <button data-tecla="ArrowUp" style="--pos:1/2" aria-label="Acelerar">▲</button>
+      <button data-tecla="ArrowLeft" style="--pos:2/1" aria-label="Izquierda">◀</button>
+      <button data-tecla="ArrowRight" style="--pos:2/3" aria-label="Derecha">▶</button>
+      <button data-tecla="ArrowDown" style="--pos:3/2" aria-label="Frenar">▼</button>
+    </div>
+    <div class="acciones">
+      <button class="accion chico" data-tecla="KeyX" aria-label="Frenar"><span>B</span></button>
+      <button class="accion" data-tecla="KeyZ" aria-label="Acelerar"><span>A</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="capa" id="capa">
+  <div class="tarjeta">
+    <h1 id="capa-titulo">Carrera de Charcos</h1>
+    <p id="capa-texto"></p>
+    <button id="capa-boton">Correr</button>
+    <div id="capa-reglas"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   CARRERA DE CHARCOS — Stumpffia
+   Un solo archivo, sin librerías, sin peticiones de red.
+
+   La pantalla de arriba no dibuja polígonos: pinta 120 líneas, una por una,
+   como las consolas de 8 bits. Cada línea bajo el horizonte es más ancha que
+   la de arriba y alterna franjas claras y oscuras; moverlas hacia abajo es lo
+   que parece velocidad. Las curvas solo empujan el centro de la pista.
+   Los vehículos no se escalan: vienen dibujados a mano en tres tamaños.
+
+   La pantalla de abajo es el mismo trazado visto desde arriba, en tiles de
+   16x16. Las dos salen de sprites/mapa.json, así que siempre coinciden.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* SPRITES-INICIO */
+// Generado por empacar.mjs desde sprites/*.json — no editar a mano.
+const NOMBRES = ["veh_f1_grande_giro_izq","veh_f1_grande_recto","veh_f1_grande_giro_der","veh_f1_mediano_giro_izq","veh_f1_mediano_recto","veh_f1_mediano_giro_der","veh_f1_chico_recto","veh_coche_grande_giro_izq","veh_coche_grande_recto","veh_coche_grande_giro_der","veh_coche_mediano_giro_izq","veh_coche_mediano_recto","veh_coche_mediano_giro_der","veh_coche_chico_recto","veh_moto_grande_giro_izq","veh_moto_grande_recto","veh_moto_grande_giro_der","veh_moto_mediano_giro_izq","veh_moto_mediano_recto","veh_moto_mediano_giro_der","veh_moto_chico_recto","tex_pasto_a","tex_pasto_b","tex_asfalto","tex_borde_a","tex_borde_b","tex_linea","tex_meta","fondo_montanas","fondo_nube","deco_pino_grande","deco_pino_mediano","deco_pino_chico","deco_cartel_der_grande","deco_cartel_der_mediano","deco_cartel_der_chico","deco_cartel_izq_grande","deco_cartel_izq_mediano","deco_cartel_izq_chico","deco_llantas_grande","deco_llantas_mediano","deco_llantas_chico","tile_pasto","tile_pista_h","tile_pista_v","tile_curva_abajo_der","tile_curva_abajo_izq","tile_curva_arriba_der","tile_curva_arriba_izq","tile_meta","tile_arbol","ico_f1_arriba","ico_f1_derecha","ico_f1_abajo","ico_f1_izquierda","ico_coche_arriba","ico_coche_derecha","ico_coche_abajo","ico_coche_izquierda","ico_moto_arriba","ico_moto_derecha","ico_moto_abajo","ico_moto_izquierda"];
+const MEDIDAS = [32,24,32,24,32,24,16,12,16,12,16,12,8,6,32,24,32,24,32,24,16,12,16,12,16,12,8,6,32,24,32,24,32,24,16,12,16,12,16,12,8,6,4,4,4,4,4,4,4,4,4,4,4,4,4,4,64,24,24,8,32,32,16,16,8,8,32,32,16,16,8,8,32,32,16,16,8,8,32,32,16,16,8,8,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8];
+const BITS = "AAAAAP////yAAAAE/////MADAAzAD8AMQB/gCAA/8AAAIBAAAD/wAHw//D7+f/5/gv//Qf7gB3+C7/dB/uw3f4Lv90H+4Ad/gv//Qf7//3+Cf/5B/jZsf3wf+D4AAAAAAAAAAH////5AAAACf////mABgAZgB+AGIA/wBAAf+AAAEAgAAB/4AHw//D7+f/5/gv//Qf7gB3+C7/dB/uw3f4Lv90H+4Ad/gv//Qf7//3+Cf/5B/jZsf3wf+D4AAAAAAAAAAD////8gAAABP////zAAwAMwA/ADEAf4AgAP/AAACAQAAA/8AHw//D7+f/5/gv//Qf7gB3+C7/dB/uw3f4Lv90H+4Ad/gv//Qf7//3+Cf/5B/jZsf3wf+D4AAAAAAAD//IAE//yHhOfnr/Xv96w17/emZeAHAAB//kACf/5Dwufnr/Xv96w17/emZeAHAAA//yABP/8h4efnr/Xv96w17/emZeAHAP88vb0AAAAAAAAAAAAAAAAAD//8ABAAAgAoAAUAJAAJAEIAEIBBACCA////wH////5AAAACf////n////7B//+D3f//u8HwD4P/9+////AP//////+AAAAB/////+H//4dgAAAGAAAAAAAAAAAAAAAAAf//gAIAAEAFAACgBIABIAhAAhAIIAQQH///+H////5AAAACf////n////7B//+D3f//u8HwD4P/9+////AP//////+AAAAB/////+H//4dgAAAGAAAAAAAAAAAAAAAAAD//8ABAAAgAoAAUAJAAJAEIAEIBBACCA////3////5AAAACf////n////7B//+D3f//u8HwD4P/9+////AP//////+AAAAB/////+H//4dgAAAGAAAAAD/wQAhISH/+//+P8fw////P80ACAAAAAB/4IAQkJH/+//+P8fw////P80ACAAAAAA/8EAISEn/+//+P8fw////P80ACADxa/5mBAAAAAAAAAAAAPwAAAH+AAAD/wAAAwMAAAH/gAAH/+AAD//wAB//+AA///wAN//7AGP/8YDD//DAB//4ADP/8wAZgBmAGf/5gDh/4cAAH4AAABaAAAAfgAAAFoAAAA8AAAAAAAAAAAAAAB+AAAA/wAAAf+AAAGBgAAB/4AAB//gAA//8AAf//gAP//8AG//9gDH/+MBh//hgA//8ABn/+YAZgBmAGf/5gDh/4cAAH4AAABaAAAAfgAAAFoAAAA8AAAAAAAAAAAAAAAPwAAAH+AAAD/wAAAwMAAAf+AAAf/4AAP//AAH//4AD///ADf/+wBj//GAw//wwAf/+AAz//MAZgBmAGf/5gDh/4cAAH4AAABaAAAAfgAAAFoAAAA8AADwAfgBCAH4A/8H/43+yf5hgYH/gDwAPAA8AH4AQgB+Af+D/8b/bP8xgYH/gDwAPAAPAB+AEIAfgP/B/+N/tn+RgYH/gDwAPAABg8fr0YgCClpQAA//8AAP//zDMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAHAAAAgAAAAA+AAAHAAAAAHcAAA+AAAAA64AAHcAAAAHdwAA64AAAA77gAHdwAHAHf3AA77gA+A//+AHf3AH8H//8A//+A44f//wH//8Pd7///g///577////D////f3///+f////////////////////////////////////////////////////////////////////////////////////8A+AAH/gAf/7x///7///9///4f5/gAAAAAAYAAAAGAAAADwAAAB+AAAAfgAAAP8AAAH/gAABvoAAA//AAAD/AAAB/4AAAf+AAAP/wAAH/+AAD//wABb/aAA///wAA//AAAf/4AAP//AAH//4AD///AD///8B////g7bbbcf////gADwAAAAsAAAALAAAACwAAAAsAAAAPAAAGAAYADwAPAB+ADwAfgD9Af+A/wH/gttH/+AYABgAGAGBg8GDw8fhgAAAAAf////kAAAAJcOHByThw4OkcOHB5Dhw4OQcOHBkOHDg5HDhweThw4Olw4cHJAAAACf////gMAAGADAABgAwAAYAMAAGADAABgAwAAYAMAAGADAABgAwAAYAMAAGADAABgAwAAYAMAAGADAABgAwAAYAMAAGAHgADwAAAAAAAA//+AAbMxmZmMzZmZszGAAf//EAgQCBAIEAgQCDgcAP+r1av/QkIAAAAAf////kAAAAJODhw6XBw4cng4cOJwcOHCYOHDgnBw4cJ4OHDiXBw4ck4OHDpAAAACf////gYAAMAGAADABgAAwAYAAMAGAADABgAAwAYAAMAGAADABgAAwAYAAMAGAADABgAAwAYAAMAGAADABgAAwAYAAMAPAAHgAAAAAAAA//+AAYzNmZmzMZmZjM2AAf//EAgQCBAIEAgQCDgcAP/Vq9X/QkIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8B////gYAAAYH///+BVVqqgf///4D///8A////Af///4GAAAGB////gVVaqoH///+A////AP///wH///+BgAABgf///4FVWqqB////gP///wAAAAAAAAAAAAAAAAAAA//EACf/4//EACf/4//EACf/4//AAAAAB+gX6BfgD////////f3/////////39////////39/////////9/f///////wAAAAAAAAAAAAAAAAAAAAAAAAAA////////4AfgB+AH4AfgB+AH4AfgB+AH4AfgB+AH4AfgB+AH4Af/////////8P/A/wD+APwA+AD4APAA8ADgAOAD4AfgB////////w//A/8A/wB/AD8AHwAfAA8ADwAHwAfgB+AH4AfgB+AD4ADwAPAA+AD4APwA/gD/AP/A//D////////gB+AHwAcABwAPAA8AHwAfAD8AfwD/A/8P/////////////////wTABMADIAMgBMAEwAMgAyAEwATA////////+B/jx8/T33ud+bftn72+/bv1j9nfe83z48f4H/////8YGNs8JP/bfmTkuO/vuORkftv/JDzbGBgmJx339x0nJjx+Qn5+Qn48AH7b29vbfgA8fkJ+fkJ+PAB+29vb234AGH4YPDwYGBgAAhr//xoCABgYGDw8GH4YAEBY//9YQAA=";
+/* SPRITES-FIN */
+
+/* PISTA-INICIO */
+// Generado por empacar.mjs desde sprites/mapa.json — no editar a mano.
+const LEYENDA = {".":"pasto","H":"pista_h","V":"pista_v","A":"curva_abajo_der","B":"curva_abajo_izq","C":"curva_arriba_der","D":"curva_arriba_izq","M":"meta","T":"arbol"};
+const DIBUJO_MAPA = ["T..T....T...T..T",".AMHHHHB....T...",".V.T...V..T.....",".V.....CHHHB..T.",".V..T......V....",".V.........V..T.",".V...AHHB..V....",".V...V.TV..V..T.",".CHHHD..V..V....","T....T..CHHD..T.","..T.......T.....","T...T..T...T..T."];
+const RUTA = "2,1,E;3,1,E;4,1,E;5,1,E;6,1,E;7,1,S;7,2,S;7,3,E;8,3,E;9,3,E;10,3,E;11,3,S;11,4,S;11,5,S;11,6,S;11,7,S;11,8,S;11,9,O;10,9,O;9,9,O;8,9,N;8,8,N;8,7,N;8,6,O;7,6,O;6,6,O;5,6,S;5,7,S;5,8,O;4,8,O;3,8,O;2,8,O;1,8,N;1,7,N;1,6,N;1,5,N;1,4,N;1,3,N;1,2,N;1,1,E";
+/* PISTA-FIN */
+
+/* ───────────────── Medidas de la pantalla ───────────────── */
+
+const ANCHO = 256, ALTO = 192;
+const HORIZONTE = 72;          // primera fila de suelo
+const LINEAS = 120;            // filas de suelo pseudo-3D
+const MEDIO = 105;             // media calzada en píxeles, abajo del todo
+
+/* ───────────────── Medidas de la pista ─────────────────
+   Todo se mide en "unidades de profundidad": la fila de abajo de la pantalla
+   está a 1 unidad de la cámara y el horizonte, a 120. */
+
+const Z_TILE = 6;              // lo que mide un tile del mapa
+const FRANJAS = 1.5;           // franjas de asfalto por unidad
+const VEL_MAX = 10;            // unidades por segundo a todo gas
+const GIRO = 1.9;              // media-calzadas por segundo girando a tope
+const CENTRIFUGA = 0.95;       // cuánto te saca la curva
+const CURVA_FUERZA = 1.15;     // cuánto se dobla la pista en pantalla
+const FUERA = 0.46;            // qué te queda de velocidad en el pasto
+const LIMITE = 2.3;            // hasta dónde puedes salirte
+
+const VEHICULOS = [
+  { id:"f1",    nombre:"Fórmula 1", vel:1.00, acel:1.00, agarre:0.95,
+    pinta:"Rápido de recta, pero resbala en curva." },
+  { id:"coche", nombre:"Coche",     vel:0.93, acel:0.88, agarre:1.20,
+    pinta:"Pesado y obediente. Perdona los errores." },
+  { id:"moto",  nombre:"Moto",      vel:0.97, acel:1.25, agarre:0.82,
+    pinta:"Sale disparada; mantenerla derecha ya es cosa tuya." }
+];
+const DIFICULTADES = [
+  { nombre:"Suave",  pericia:[0.78, 0.86], goma:0.10 },
+  { nombre:"Normal", pericia:[0.86, 0.94], goma:0.06 },
+  { nombre:"Dura",   pericia:[0.93, 1.00], goma:0.03 }
+];
+const RIVALES = ["CROA", "SAPO", "BRINCO", "LIRIO", "CHARCO", "RENA", "JUNCO"];
+
+/* ───────────────── Los dibujos ─────────────────
+   Los bits empacados se vuelven píxeles de verdad. El 0 pegado al borde del
+   dibujo es transparente; el 0 encerrado por unos se pinta azul marino, que
+   es lo que hace las ventanas y los ojos. */
+
+function tono(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  /* los lienzos guardan los colores al revés: alfa, azul, verde, rojo */
+  return (0xFF000000 | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16)) >>> 0;
+}
+const MARINO = tono("#0B1A4A"), CLARO = tono("#7EC8F2");
+
+const SPR = {};
+(function desempacar() {
+  const bin = atob(BITS);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+  let desde = 0;
+  NOMBRES.forEach(function (nombre, n) {
+    const w = MEDIDAS[n * 2], h = MEDIDAS[n * 2 + 1], total = w * h;
+    const encendido = new Uint8Array(total);
+    for (let i = 0; i < total; i++) {
+      encendido[i] = (bytes[desde + (i >> 3)] >> (7 - (i & 7))) & 1;
+    }
+    desde += Math.ceil(total / 8);
+
+    /* el vacío de afuera, a brochazos desde el borde */
+    const fuera = new Uint8Array(total), pila = [];
+    for (let x = 0; x < w; x++) { pila.push(x, (h - 1) * w + x); }
+    for (let y = 0; y < h; y++) { pila.push(y * w, y * w + w - 1); }
+    while (pila.length) {
+      const i = pila.pop();
+      if (fuera[i] || encendido[i]) continue;
+      fuera[i] = 1;
+      const x = i % w, y = (i / w) | 0;
+      if (x > 0) pila.push(i - 1);
+      if (x < w - 1) pila.push(i + 1);
+      if (y > 0) pila.push(i - w);
+      if (y < h - 1) pila.push(i + w);
+    }
+
+    const px = new Uint32Array(total);
+    for (let i = 0; i < total; i++) px[i] = encendido[i] ? CLARO : (fuera[i] ? 0 : MARINO);
+    SPR[nombre] = { w: w, h: h, px: px };
+  });
+})();
+
+/* Las texturas del suelo son de 4x4 y no se estiran: se repiten. */
+const TEX = {};
+for (const nombre of ["pasto_a", "pasto_b", "asfalto", "borde_a", "borde_b", "linea", "meta"]) {
+  const s = SPR["tex_" + nombre], t = new Uint32Array(16);
+  for (let i = 0; i < 16; i++) t[i] = s.px[i] || MARINO;
+  TEX[nombre] = t;
+}
+
+/* ───────────────── El trazado ─────────────────
+   La ruta son los tiles del mapa en orden. De ahí salen las dos pantallas:
+   el giro de cada tile dobla la pista de arriba, y su casilla pone el
+   cochecito en el mapa de abajo. */
+
+const RELOJ = ["N", "E", "S", "O"];
+const PASOS = RUTA.split(";").map(function (t) {
+  const p = t.split(",");
+  return { x: +p[0], y: +p[1], dir: p[2], giro: 0 };
+});
+PASOS.forEach(function (p, i) {
+  const antes = PASOS[(i - 1 + PASOS.length) % PASOS.length].dir;
+  let g = RELOJ.indexOf(p.dir) - RELOJ.indexOf(antes);
+  if (g === 3) g = -1; else if (g === -3) g = 1;
+  p.giro = g;
+});
+
+const TILES = PASOS.length;
+const LARGO = TILES * Z_TILE;          // lo que mide una vuelta
+
+function envolver(z) { return ((z % LARGO) + LARGO) % LARGO; }
+
+/* Cuánto dobla la pista en un punto. El giro de un tile se reparte con el
+   siguiente para que la curva entre y salga suave en vez de dar un tirón. */
+function curvaEn(z) {
+  const paso = envolver(z) / Z_TILE;
+  const i = Math.floor(paso), f = paso - i;
+  const a = PASOS[i % TILES].giro, b = PASOS[(i + 1) % TILES].giro;
+  return (a + (b - a) * f) * CURVA_FUERZA;
+}
+
+/* Pinos, carteles y pilas de llantas, siempre en el mismo sitio. */
+const ADORNOS = [];
+PASOS.forEach(function (p, i) {
+  const z = i * Z_TILE + Z_TILE * 0.5;
+  if (p.giro) {
+    /* el cartel va por fuera de la curva, apuntando hacia donde dobla */
+    ADORNOS.push({ z: z - Z_TILE * 0.35, lado: -1.5 * p.giro,
+                   nombre: p.giro > 0 ? "cartel_der" : "cartel_izq" });
+    ADORNOS.push({ z: z + Z_TILE * 0.2, lado: 1.3 * p.giro, nombre: "llantas" });
+  } else if (i % 2 === 0) {
+    ADORNOS.push({ z: z, lado: (i % 4 === 0 ? -1.55 : 1.55), nombre: "pino" });
+  }
+});
+
+/* ───────────────── Ajustes ───────────────── */
+
+const ajustes = { vehiculo: 0, vueltas: 3, rivales: 5, dificultad: 1, auto: false };
+
+function leerAjustes() {
+  try {
+    const g = JSON.parse(localStorage.getItem("stumpffia:carrera-charcos:ajustes") || "{}");
+    for (const k in ajustes) if (typeof g[k] === typeof ajustes[k]) ajustes[k] = g[k];
+  } catch (e) {}
+  ajustes.vehiculo = Math.min(VEHICULOS.length - 1, Math.max(0, ajustes.vehiculo | 0));
+  ajustes.dificultad = Math.min(DIFICULTADES.length - 1, Math.max(0, ajustes.dificultad | 0));
+  ajustes.vueltas = Math.min(9, Math.max(1, ajustes.vueltas | 0));
+  ajustes.rivales = Math.min(RIVALES.length, Math.max(0, ajustes.rivales | 0));
+}
+function guardarAjustes() {
+  try { localStorage.setItem("stumpffia:carrera-charcos:ajustes", JSON.stringify(ajustes)); } catch (e) {}
+}
+function leerRecord() {
+  try { return parseFloat(localStorage.getItem("stumpffia:carrera-charcos")) || 0; }
+  catch (e) { return 0; }
+}
+function guardarRecord(v) {
+  try { localStorage.setItem("stumpffia:carrera-charcos", String(v)); } catch (e) {}
+}
+
+/* ───────────────── La carrera ───────────────── */
+
+const juego = {
+  estado: "menu",        // menu · ajustes · cuenta · jugando · pausa · fin
+  karts: [],
+  jugador: null,
+  tiempo: 0,
+  cuenta: 0,
+  record: 0,
+  curvaVista: 0,         // la curva que se ve, que va detrás de la de verdad
+  rumbo: 0,              // hacia dónde mira el coche, para mover el fondo
+  aviso: 0               // lo que queda del cartel de en medio
+};
+
+function crearKart(fila, cpu, vehiculo, nombre) {
+  const v = VEHICULOS[vehiculo];
+  return {
+    cpu: cpu, nombre: nombre, vehiculo: v,
+    /* la parrilla: uno detrás de otro, en zigzag, antes de la meta */
+    z: envolver(LARGO - 1.6 - fila * 2.1),
+    x: fila % 2 ? -0.45 : 0.45,
+    vel: 0, giro: 0, vuelta: 0,
+    pericia: 1, carril: 0,
+    puesto: fila + 1,
+    vueltaDesde: 0, mejor: 0, acabado: 0
+  };
+}
+
+function empezar() {
+  const dif = DIFICULTADES[ajustes.dificultad];
+  juego.karts = [];
+  juego.tiempo = 0;
+  juego.cuenta = 3.2;
+  juego.curvaVista = 0;
+  juego.rumbo = 0;
+  juego.record = leerRecord();
+
+  const total = ajustes.rivales + 1;
+  for (let i = 0; i < ajustes.rivales; i++) {
+    const k = crearKart(i, true, (i + ajustes.vehiculo + 1) % VEHICULOS.length, RIVALES[i]);
+    /* cada rival corre lo suyo y tiene su carril preferido */
+    k.pericia = dif.pericia[0] + (dif.pericia[1] - dif.pericia[0]) * (i / Math.max(1, ajustes.rivales - 1));
+    k.carril = -0.5 + (i % 3) * 0.5;
+    juego.karts.push(k);
+  }
+  /* tú sales del último cajón: hay sitio para adelantar */
+  const yo = crearKart(ajustes.rivales, false, ajustes.vehiculo, "TÚ");
+  juego.karts.push(yo);
+  juego.jugador = yo;
+  juego.karts.forEach(function (k, i) { k.puesto = i + 1; });
+
+  juego.estado = "cuenta";
+  capa.classList.remove("visible");
+  avisar("3", 0);
+}
+
+/* ───────────────── Físicas ───────────────── */
+
+const teclas = Object.create(null);
+
+function velTope(k) {
+  let v = VEL_MAX * k.vehiculo.vel;
+  if (k.cpu) v *= k.pericia;
+  if (Math.abs(k.x) > 1) v *= FUERA;     // el pasto frena
+  return v;
+}
+
+function mover(k, dt, gas, freno) {
+  const tope = velTope(k);
+  const acel = VEL_MAX * k.vehiculo.acel / 3.2;
+
+  if (freno) k.vel -= VEL_MAX * 1.1 * dt;
+  else if (gas) k.vel += acel * dt * (k.vel < tope ? 1 : -0.6);
+  else k.vel -= VEL_MAX * 0.28 * dt;
+  if (k.vel > tope) k.vel = Math.max(tope, k.vel - VEL_MAX * 0.9 * dt);
+  if (k.vel < 0) k.vel = 0;
+
+  /* girar cuesta lo mismo rápido que despacio, pero parado no se gira */
+  const parte = k.vel / VEL_MAX;
+  const paso = dt * GIRO * Math.min(1, parte * 2.4);
+  k.x += paso * k.giro * k.vehiculo.agarre;
+  /* y la curva te empuja hacia afuera */
+  k.x -= dt * GIRO * parte * parte * curvaEn(k.z) * CENTRIFUGA / k.vehiculo.agarre;
+  if (k.x > LIMITE) k.x = LIMITE;
+  if (k.x < -LIMITE) k.x = -LIMITE;
+
+  k.z += k.vel * dt;
+  if (k.z >= LARGO) {
+    k.z -= LARGO;
+    k.vuelta++;
+    const vuelta = juego.tiempo - k.vueltaDesde;
+    k.vueltaDesde = juego.tiempo;
+    if (k.vuelta > 1 && (!k.mejor || vuelta < k.mejor)) k.mejor = vuelta;
+    if (!k.cpu) vueltaDada(k, vuelta);
+  }
+}
+
+function vueltaDada(k, vuelta) {
+  if (k.vuelta > 1 && vuelta > 0 && (!juego.record || vuelta < juego.record)) {
+    juego.record = vuelta;
+    guardarRecord(vuelta);
+  }
+  if (k.vuelta > ajustes.vueltas) return;        // el aviso de meta lo pone acabar()
+  if (k.vuelta === ajustes.vueltas) avisar("¡ÚLTIMA VUELTA!", 1.6);
+  else avisar("VUELTA " + k.vuelta, 1.2);
+}
+
+/* Lo que piensa un rival: por dónde entra a la curva, a quién esquiva y
+   cuánto corre. No hacen trampas; solo se les da mejor o peor. */
+function pensar(k, dt) {
+  const curva = curvaEn(k.z + Z_TILE * 0.9);
+  let objetivo = k.carril + curva * 0.32;        // se arriman por dentro
+
+  for (const otro of juego.karts) {
+    if (otro === k) continue;
+    const delante = envolver(otro.z - k.z);
+    if (delante > 0.1 && delante < 2.4 && Math.abs(otro.x - k.x) < 0.55) {
+      objetivo = otro.x + (otro.x > 0 ? -0.75 : 0.75);
+    }
+  }
+  if (objetivo > 0.92) objetivo = 0.92;
+  if (objetivo < -0.92) objetivo = -0.92;
+
+  k.giro = Math.max(-1, Math.min(1, (objetivo - k.x) * 2.6));
+
+  /* frenan para la curva y, si se quedaron muy atrás, aprietan un poco */
+  let ganas = 1 - Math.min(0.34, Math.abs(curva) * 0.22);
+  const goma = DIFICULTADES[ajustes.dificultad].goma;
+  const resta = (progreso(juego.jugador) - progreso(k)) / LARGO;
+  ganas += Math.max(-goma, Math.min(goma, resta * goma * 3));
+
+  const quiere = velTope(k) * ganas;
+  mover(k, dt, k.vel < quiere, k.vel > quiere * 1.12);
+}
+
+function progreso(k) { return k.vuelta * LARGO + k.z; }
+
+/* Chocarse: ni se adelanta atravesando al de delante ni se empuja de balde. */
+function empujones() {
+  for (let i = 0; i < juego.karts.length; i++) {
+    for (let j = i + 1; j < juego.karts.length; j++) {
+      const a = juego.karts[i], b = juego.karts[j];
+      let dz = a.z - b.z;
+      if (dz > LARGO / 2) dz -= LARGO; else if (dz < -LARGO / 2) dz += LARGO;
+      const dx = a.x - b.x;
+      if (Math.abs(dz) > 0.9 || Math.abs(dx) > 0.52) continue;
+      const lado = dx === 0 ? (i % 2 ? 0.1 : -0.1) : (dx > 0 ? 1 : -1);
+      const sitio = (0.52 - Math.abs(dx)) / 2;
+      a.x += lado * sitio; b.x -= lado * sitio;
+      /* el de atrás se lleva el frenazo */
+      const atras = dz < 0 ? a : b, delante = dz < 0 ? b : a;
+      atras.vel *= 0.86;
+      delante.vel *= 0.97;
+    }
+  }
+}
+
+function acabar() {
+  juego.estado = "fin";
+  const yo = juego.jugador;
+  const puesto = yo.puesto;
+  avisar("", 0);
+  window.__verReglas = true;
+
+  const filas = juego.karts.slice().sort(function (a, b) { return a.puesto - b.puesto; })
+    .map(function (k) {
+      return [k.puesto + "º  " + k.nombre, k.mejor ? reloj(k.mejor) : "—", !k.cpu];
+    });
+
+  mostrarCapa(
+    puesto === 1 ? "¡Primero!" : puesto + "º puesto",
+    puesto === 1 ? "La charca entera te vio pasar." :
+      "Tu mejor vuelta: " + (yo.mejor ? reloj(yo.mejor) : "—") + ". Otra vez, que ya casi.",
+    "Correr otra vez", filas, true);
+}
+
+function actualizar(dt) {
+  if (juego.estado === "cuenta") {
+    juego.cuenta -= dt;
+    const n = Math.ceil(juego.cuenta);
+    avisar(juego.cuenta <= 0 ? "¡YA!" : String(n), juego.cuenta <= 0 ? 0.8 : 0);
+    if (juego.cuenta <= 0) {
+      juego.estado = "jugando";
+      juego.karts.forEach(function (k) { k.vueltaDesde = 0; });
+    }
+    return;
+  }
+  if (juego.estado !== "jugando") return;
+
+  juego.tiempo += dt;
+  if (juego.aviso > 0) {
+    juego.aviso -= dt;
+    if (juego.aviso <= 0) avisar("", 0);
+  }
+
+  const yo = juego.jugador;
+  yo.giro = (teclas.ArrowLeft || teclas.KeyA ? -1 : 0) + (teclas.ArrowRight || teclas.KeyD ? 1 : 0);
+  const freno = !!(teclas.ArrowDown || teclas.KeyS || teclas.KeyX);
+  const gas = ajustes.auto ? !freno : !!(teclas.ArrowUp || teclas.KeyW || teclas.KeyZ);
+  mover(yo, dt, gas, freno);
+
+  for (const k of juego.karts) if (k.cpu) pensar(k, dt);
+  empujones();
+
+  /* los puestos, por lo que lleva corrido cada uno */
+  const orden = juego.karts.slice().sort(function (a, b) { return progreso(b) - progreso(a); });
+  orden.forEach(function (k, i) { k.puesto = i + 1; });
+
+  /* la pista que se ve dobla un poco después que la de verdad: así la curva
+     se insinúa antes de llegar, como en las consolas viejas */
+  const quiere = curvaEn(yo.z + Z_TILE * 0.45);
+  juego.curvaVista += (quiere - juego.curvaVista) * Math.min(1, dt * 5);
+  juego.rumbo += curvaEn(yo.z) * yo.vel * dt * 0.26;
+
+  for (const k of juego.karts) {
+    if (!k.acabado && k.vuelta > ajustes.vueltas) k.acabado = juego.tiempo;
+  }
+  if (yo.vuelta > ajustes.vueltas) acabar();
+}
+
+/* ───────────────── Pintar: la carrera ───────────────── */
+
+const lienzoA = document.getElementById("carrera");
+const ctxA = lienzoA.getContext("2d", { alpha: false });
+const imgA = ctxA.createImageData(ANCHO, ALTO);
+const bufA = new Uint32Array(imgA.data.buffer);
+
+const lienzoB = document.getElementById("mapa");
+const ctxB = lienzoB.getContext("2d", { alpha: false });
+const imgB = ctxB.createImageData(ANCHO, ALTO);
+const bufB = new Uint32Array(imgB.data.buffer);
+
+const centro = new Float32Array(LINEAS);   // dónde queda el centro de la pista en cada fila
+
+function estampar(buf, nombre, ox, oy, opaco, invertido) {
+  const s = SPR[nombre];
+  if (!s) return;
+  oy = Math.round(oy); ox = Math.round(ox);
+  for (let y = 0; y < s.h; y++) {
+    const py = oy + y;
+    if (py < 0 || py >= ALTO) continue;
+    const fila = py * ANCHO, sfila = y * s.w;
+    for (let x = 0; x < s.w; x++) {
+      const px = ox + x;
+      if (px < 0 || px >= ANCHO) continue;
+      let c = s.px[sfila + x];
+      if (!c) { if (!opaco) continue; c = MARINO; }
+      else if (invertido) c = c === CLARO ? MARINO : CLARO;
+      buf[fila + px] = c;
+    }
+  }
+}
+
+function franja(fila, yt, desde, hasta, tex) {
+  if (desde < 0) desde = 0;
+  if (hasta > ANCHO) hasta = ANCHO;
+  for (let x = desde; x < hasta; x++) bufA[fila + x] = tex[yt + (x & 3)];
+}
+
+/* el píxel x entra en la franja si su centro cae dentro */
+function borde(v) { return Math.ceil(v - 0.5); }
+
+function pintarCarrera() {
+  const yo = juego.jugador;
+  bufA.fill(MARINO);                          // el cielo
+
+  /* El fondo se corre según hacia dónde mires: una curva entera lo mueve una
+     montaña completa, y las nubes van más lentas porque están más lejos. */
+  const giroPant = juego.rumbo * 42;
+  for (const n of [[30, 14], [170, 26]]) {
+    let x = (n[0] - giroPant * 0.35) % (ANCHO + 24);
+    if (x < -24) x += ANCHO + 24;
+    estampar(bufA, "fondo_nube", x, n[1], false, false);
+  }
+  let desp = Math.round(-giroPant) % 64;
+  if (desp > 0) desp -= 64;
+  for (let tx = desp; tx < ANCHO + 64; tx += 64) {
+    estampar(bufA, "fondo_montanas", tx, HORIZONTE - 24, true, false);
+  }
+
+  /* El suelo, línea por línea. */
+  const xPix = yo.x * MEDIO + (Math.abs(yo.x) > 1 ? (Math.random() - 0.5) * yo.vel * 0.6 : 0);
+  const fase = yo.z;
+  for (let i = 1; i <= LINEAS; i++) {
+    const y = HORIZONTE + i - 1, s = i / LINEAS, z = 1 / s;
+    const cx = ANCHO / 2 + juego.curvaVista * 90 * (1 - s) * (1 - s) - xPix * s;
+    centro[i - 1] = cx;
+
+    const medio = MEDIO * s;
+    const ancho = Math.max(1, medio * 0.13), linea = Math.max(1, medio * 0.04);
+    const par = Math.floor((z + fase * FRANJAS)) % 2 === 0;
+
+    /* la meta: la franja de asfalto del primer tile se pinta a cuadros */
+    const enMeta = envolver(yo.z + z) < 1.3;
+
+    const pasto = par ? TEX.pasto_a : TEX.pasto_b;
+    const bordillo = par ? TEX.borde_a : TEX.borde_b;
+    const asfalto = enMeta ? TEX.meta : TEX.asfalto;
+    const raya = par ? TEX.linea : asfalto;
+
+    const fila = y * ANCHO, yt = (y & 3) * 4;
+    const x0 = borde(cx - medio - ancho), x1 = borde(cx - medio);
+    const x2 = borde(cx - linea), x3 = borde(cx + linea);
+    const x4 = borde(cx + medio), x5 = borde(cx + medio + ancho);
+    franja(fila, yt, 0, x0, pasto);
+    franja(fila, yt, x0, x1, bordillo);
+    franja(fila, yt, x1, x2, asfalto);
+    franja(fila, yt, x2, x3, raya);
+    franja(fila, yt, x3, x4, asfalto);
+    franja(fila, yt, x4, x5, bordillo);
+    franja(fila, yt, x5, ANCHO, pasto);
+  }
+
+  /* Lo que hay sobre la pista, de lo más lejos a lo más cerca. */
+  const cosas = [];
+  for (const a of ADORNOS) {
+    const zr = envolver(a.z - yo.z);
+    if (zr >= 1 && zr < 34) cosas.push({ zr: zr, lado: a.lado, deco: a.nombre });
+  }
+  for (const k of juego.karts) {
+    if (k === yo) continue;
+    const zr = envolver(k.z - yo.z);
+    if (zr >= 1 && zr < 34) cosas.push({ zr: zr, lado: k.x, kart: k });
+  }
+  cosas.sort(function (a, b) { return b.zr - a.zr; });
+
+  for (const c of cosas) {
+    const s = 1 / c.zr;
+    const i = Math.round(s * LINEAS);
+    if (i < 2 || i > LINEAS) continue;
+    const tam = s >= 0.55 ? "grande" : s >= 0.22 ? "mediano" : s >= 0.03 ? "chico" : null;
+    if (!tam) continue;
+    const y = HORIZONTE + i - 1;
+    const x = centro[i - 1] + c.lado * MEDIO * s;
+    const nombre = c.deco ? "deco_" + c.deco + "_" + tam
+                          : "veh_" + c.kart.vehiculo.id + "_" + tam + "_" + (tam === "chico" ? "recto" : vuelco(c.kart.giro));
+    const s2 = SPR[nombre];
+    if (!s2) continue;
+    estampar(bufA, nombre, x - s2.w / 2, y - s2.h + 1, false, false);
+  }
+
+  /* y tú, siempre en medio: lo que se mueve es la pista */
+  const mio = "veh_" + yo.vehiculo.id + "_grande_" + vuelco(yo.giro);
+  estampar(bufA, mio, ANCHO / 2 - 16, ALTO - 26, false, false);
+
+  ctxA.putImageData(imgA, 0, 0);
+}
+
+function vuelco(giro) {
+  return giro < -0.3 ? "giro_izq" : giro > 0.3 ? "giro_der" : "recto";
+}
+
+/* ───────────────── Pintar: el mapa ───────────────── */
+
+const DIRS = { E: "derecha", S: "abajo", O: "izquierda", N: "arriba" };
+/* hacia dónde queda la derecha del vehículo, para separarlos en el mapa */
+const COSTADO = { E: [0, 1], S: [-1, 0], O: [0, -1], N: [1, 0] };
+
+/* El mapa no cambia nunca: se pinta una vez y luego solo se le ponen encima
+   los cochecitos. */
+const fondoMapa = new Uint32Array(ANCHO * ALTO);
+(function pintarFondoMapa() {
+  DIBUJO_MAPA.forEach(function (fila, y) {
+    for (let x = 0; x < fila.length; x++) {
+      estampar(fondoMapa, "tile_" + (LEYENDA[fila[x]] || "pasto"), x * 16, y * 16, true, false);
+    }
+  });
+})();
+
+function pintarMapa() {
+  bufB.set(fondoMapa);
+  const yo = juego.jugador;
+  for (const k of juego.karts) if (k !== yo) icono(k, false);
+  if (yo) icono(yo, true);
+  ctxB.putImageData(imgB, 0, 0);
+}
+
+function icono(k, tuyo) {
+  const paso = k.z / Z_TILE;
+  const i = Math.floor(paso) % TILES, f = paso - Math.floor(paso);
+  const a = PASOS[i], b = PASOS[(i + 1) % TILES];
+  const lado = COSTADO[a.dir];
+  const x = (a.x * 16 + 8) + ((b.x - a.x) * 16) * f + lado[0] * k.x * 3;
+  const y = (a.y * 16 + 8) + ((b.y - a.y) * 16) * f + lado[1] * k.x * 3;
+  const nombre = "ico_" + k.vehiculo.id + "_" + DIRS[a.dir];
+
+  if (tuyo) {
+    /* el tuyo va al revés —claro por fuera, oscuro por dentro— para
+       encontrarlo de un vistazo aunque lleves el mismo coche que otro */
+    const ox = Math.round(x - 6), oy = Math.round(y - 6);
+    for (let dy = 0; dy < 12; dy++) {
+      const py = oy + dy;
+      if (py < 0 || py >= ALTO) continue;
+      for (let dx = 0; dx < 12; dx++) {
+        const px = ox + dx;
+        if (px >= 0 && px < ANCHO) bufB[py * ANCHO + px] = CLARO;
+      }
+    }
+  }
+  estampar(bufB, nombre, x - 4, y - 4, false, tuyo);
+}
+
+/* ───────────────── La tira de datos ───────────────── */
+
+const datos = {
+  vuelta: document.getElementById("dato-vuelta"),
+  puesto: document.getElementById("dato-puesto"),
+  tiempo: document.getElementById("dato-tiempo"),
+  mejor: document.getElementById("dato-mejor"),
+  vel: document.getElementById("dato-vel")
+};
+const ultimo = {};
+function poner(cual, texto) {
+  if (ultimo[cual] === texto) return;
+  ultimo[cual] = texto;
+  datos[cual].textContent = texto;
+}
+function reloj(s) {
+  const m = Math.floor(s / 60), r = s - m * 60;
+  return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1);
+}
+
+function pintarDatos() {
+  const yo = juego.jugador;
+  if (!yo) return;
+  poner("vuelta", Math.min(ajustes.vueltas, Math.max(1, yo.vuelta)) + "/" + ajustes.vueltas);
+  poner("puesto", yo.puesto + "/" + juego.karts.length);
+  poner("tiempo", reloj(juego.tiempo));
+  poner("mejor", juego.record ? reloj(juego.record) : "—");
+  poner("vel", String(Math.round(yo.vel * 24)));
+  document.getElementById("hud").children[1].classList.toggle("urgente", yo.puesto === 1);
+}
+
+/* ───────────────── Pantallas ───────────────── */
+
+const capa = document.getElementById("capa");
+const capaTitulo = document.getElementById("capa-titulo");
+const capaTexto = document.getElementById("capa-texto");
+const capaBoton = document.getElementById("capa-boton");
+const capaReglas = document.getElementById("capa-reglas");
+const aviso = document.getElementById("aviso");
+
+function avisar(texto, segundos) {
+  if (aviso.textContent !== texto) {        /* la cuenta atrás pasa por aquí 60 veces por segundo */
+    aviso.textContent = texto;
+    aviso.classList.toggle("visible", !!texto);
+  }
+  juego.aviso = segundos || 0;
+}
+
+function mostrarCapa(titulo, texto, boton, filas, tabla) {
+  /* La capa vive fuera de la carcasa, porque el recorte de las esquinas
+     recortaba también lo que tuviera dentro. Para la pausa se encaja a mano
+     encima del tubo de arriba. */
+  const dentro = !!window.__enPantalla;
+  window.__enPantalla = false;
+  capa.classList.toggle("dentro", dentro);
+  if (dentro) {
+    const p = document.querySelector(".pantalla").getBoundingClientRect();
+    capa.style.left = p.left + 4 + "px"; capa.style.top = p.top + 4 + "px";
+    capa.style.width = p.width - 8 + "px"; capa.style.height = p.height - 8 + "px";
+  } else {
+    capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  }
+  capaReglas.classList.toggle("oculto", !window.__verReglas);
+  capaReglas.classList.toggle("tabla", !!tabla);
+  window.__verReglas = false;
+
+  capaTitulo.textContent = titulo;
+  capaTexto.textContent = texto;
+  capaBoton.textContent = boton;
+  capaReglas.innerHTML = "";
+  for (const fila of filas || []) {
+    const d = document.createElement("div");
+    if (fila[2]) d.className = "tuyo";
+    const s = document.createElement("span"); s.textContent = fila[0];
+    const b = document.createElement("b"); b.textContent = fila[1];
+    d.appendChild(s); d.appendChild(b);
+    capaReglas.appendChild(d);
+  }
+  capa.classList.add("visible");
+}
+
+/* ───────────────── Ajustes ───────────────── */
+
+function fila(etiqueta, control) {
+  const f = document.createElement("div");
+  f.className = "ajuste";
+  const e = document.createElement("span"); e.textContent = etiqueta;
+  f.appendChild(e); f.appendChild(control);
+  return f;
+}
+
+function opciones(lista, elegido, alElegir) {
+  const caja = document.createElement("div");
+  caja.className = "opciones";
+  lista.forEach(function (texto, i) {
+    const b = document.createElement("button");
+    b.textContent = texto;
+    b.setAttribute("aria-pressed", String(i === elegido));
+    b.addEventListener("click", function () { alElegir(i); guardarAjustes(); abrirAjustes(); });
+    caja.appendChild(b);
+  });
+  return caja;
+}
+
+function contador(valor, min, max, alCambiar) {
+  const caja = document.createElement("div");
+  caja.className = "contador";
+  const menos = document.createElement("button"); menos.textContent = "−";
+  const b = document.createElement("b"); b.textContent = valor;
+  const mas = document.createElement("button"); mas.textContent = "+";
+  menos.addEventListener("click", function () {
+    valor = Math.max(min, valor - 1); b.textContent = valor; alCambiar(valor); guardarAjustes();
+  });
+  mas.addEventListener("click", function () {
+    valor = Math.min(max, valor + 1); b.textContent = valor; alCambiar(valor); guardarAjustes();
+  });
+  caja.appendChild(menos); caja.appendChild(b); caja.appendChild(mas);
+  return caja;
+}
+
+function abrirAjustes() {
+  juego.estado = "ajustes";
+  capa.classList.remove("dentro");
+  capa.style.left = capa.style.top = capa.style.width = capa.style.height = "";
+  capaTitulo.textContent = "Ajustes";
+  capaTexto.textContent = VEHICULOS[ajustes.vehiculo].pinta;
+  capaBoton.textContent = "Correr";
+  capaReglas.classList.remove("oculto");
+  capaReglas.classList.remove("tabla");
+  capaReglas.innerHTML = "";
+
+  const caja = document.createElement("div");
+  caja.className = "ajustes";
+  caja.appendChild(fila("Tu vehículo",
+    opciones(VEHICULOS.map(function (v) { return v.nombre; }), ajustes.vehiculo,
+      function (i) { ajustes.vehiculo = i; })));
+  caja.appendChild(fila("Vueltas",
+    contador(ajustes.vueltas, 1, 9, function (v) { ajustes.vueltas = v; })));
+  caja.appendChild(fila("Rivales",
+    contador(ajustes.rivales, 0, RIVALES.length, function (v) { ajustes.rivales = v; })));
+  caja.appendChild(fila("Qué tan duro",
+    opciones(DIFICULTADES.map(function (d) { return d.nombre; }), ajustes.dificultad,
+      function (i) { ajustes.dificultad = i; })));
+  caja.appendChild(fila("Acelerador",
+    opciones(["Con botón", "Solo"], ajustes.auto ? 1 : 0, function (i) { ajustes.auto = i === 1; })));
+  capaReglas.appendChild(caja);
+
+  capa.classList.add("visible");
+}
+
+function botonCapa() {
+  if (juego.estado === "pausa") {
+    juego.estado = "jugando";
+    capa.classList.remove("visible");
+  } else empezar();
+}
+
+function pausar() {
+  if (juego.estado === "jugando" || juego.estado === "cuenta") {
+    juego.estado = "pausa";
+    window.__enPantalla = true;
+    mostrarCapa("Pausa", "", "Seguir", null);
+  } else botonCapa();
+}
+
+capaBoton.addEventListener("click", botonCapa);
+document.getElementById("btn-ajustes").addEventListener("click", abrirAjustes);
+document.getElementById("btn-pausa").addEventListener("click", pausar);
+
+/* ───────────────── Controles ───────────────── */
+
+addEventListener("keydown", function (e) {
+  if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); pausar(); return; }
+  teclas[e.code] = true;
+  if (/^(Arrow|Key[WASDZX])/.test(e.code)) e.preventDefault();
+});
+addEventListener("keyup", function (e) { teclas[e.code] = false; });
+addEventListener("blur", function () { for (const k in teclas) teclas[k] = false; });
+
+for (const boton of document.querySelectorAll("#mando [data-tecla]")) {
+  const code = boton.dataset.tecla;
+  boton.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    try { boton.setPointerCapture(e.pointerId); } catch (err) {}
+    teclas[code] = true;
+  });
+  const soltar = function (e) { e.preventDefault(); teclas[code] = false; };
+  boton.addEventListener("pointerup", soltar);
+  boton.addEventListener("pointercancel", soltar);
+}
+
+/* ───────────────── Marcha ───────────────── */
+
+let anterior = 0;
+function marco(ahora) {
+  requestAnimationFrame(marco);
+  const dt = Math.min(0.05, (ahora - anterior) / 1000 || 0);
+  anterior = ahora;
+  actualizar(dt);
+  if (juego.jugador) { pintarCarrera(); pintarMapa(); pintarDatos(); }
+}
+
+/* API mínima para probar el juego desde la consola */
+window.CARRERA = { juego, ajustes, empezar, actualizar, mover, pensar, teclas,
+                   curvaEn, progreso, pintarCarrera, pintarMapa, PASOS, ADORNOS, SPR, LARGO, Z_TILE };
+
+leerAjustes();
+empezar();
+juego.estado = "menu";
+juego.jugador.vel = 0;
+avisar("", 0);
+window.__verReglas = true;
+mostrarCapa("Carrera de Charcos",
+  "Tres vueltas al charco, saliendo desde atrás. Fuera del asfalto se va la velocidad.",
+  "Correr",
+  [["Girar", "← → o A D"],
+   ["Acelerar", "↑ o botón A"],
+   ["Frenar", "↓ o botón B"],
+   ["Pausa", "Espacio"],
+   ["Vehículo y rivales", "botón AJUSTES"]]);
+requestAnimationFrame(marco);
+
+})();
+</script>
+
+</body>
+</html>
